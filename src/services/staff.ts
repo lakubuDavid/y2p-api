@@ -2,6 +2,7 @@ import { LibSQLDatabase } from "drizzle-orm/libsql";
 import { StaffTable, CreateStaff, SelectStaff } from "../db/schemas/staff";
 import { UserTable } from "../db/schemas/user";
 import { eq, and } from "drizzle-orm";
+import { BaseService } from "./service";
 
 export type Department = "admin" | "veterinary" | "reception";
 export type StaffWithUser = SelectStaff & {
@@ -11,14 +12,12 @@ export type StaffWithUser = SelectStaff & {
   };
 };
 
-export class StaffService {
-  private readonly JWT_SECRET: string;
+export class StaffService extends BaseService{
   constructor(
-    private db: LibSQLDatabase,
+    db: LibSQLDatabase,
     jwtSecret: string,
   ) {
-    if (!jwtSecret) throw new Error("JWT_SECRET is required");
-    this.JWT_SECRET = jwtSecret;
+    super(db,jwtSecret)
   }
 
   public async addStaffMember(staffInfo: CreateStaff) {

@@ -1,28 +1,49 @@
 import { createMiddleware } from "hono/factory";
-import { AppContext } from "../types";
+import { AppContext, Bindings } from "../types";
 import { AuthService } from "./auth";
 import assert from "assert";
 import { PetService } from "./pet";
 import { StaffService } from "./staff";
+import { ReservationService } from "./reservation";
+import { env } from "hono/adapter";
+import { BaseService } from "./service";
+import { Context, ContextVariableMap } from "hono";
+import { UserService } from "./user";
+import { LibSQLDatabase } from "drizzle-orm/libsql";
 
 declare module "hono" {
   interface ContextVariableMap {
     authService: AuthService;
     petService: PetService;
     staffService: StaffService;
+    reservationService: ReservationService;
+    userService: UserService;
   }
 }
+type ServiceName = keyof Omit<ContextVariableMap,"jwtPayload">
+
+const registerService = <TService extends BaseService>(
+  c: Context,
+  name: ServiceName,
+  type: { new (db: LibSQLDatabase, jwtSecret: string): TService },
+) => {
+  c.set(name as string, new type(c.var.db, env<Bindings>(c).JWT_SECRET));
+};
+
 export const registerServices = () =>
-  createMiddleware((c: AppContext, next) => {
+  createMiddleware((c, next) => {
     assert(c.var.db, "[Error : Service Registration] Missing databse instance");
     assert(
-      c.env.JWT_SECRET,
+      env<Bindings>(c).JWT_SECRET,
       "[Error : Service Registration] Missing JWT secret",
     );
 
-    c.set("authService", new AuthService(c.var.db, c.env.JWT_SECRET));
-    c.set("petService", new PetService(c.var.db, c.env.JWT_SECRET));
-    c.set("staffService", new StaffService(c.var.db, c.env.JWT_SECRET));
+    registerService(c,"authService",AuthService)
+    registerService(c,"petService",PetService)
+    registerService(c,"staffService",StaffService)
+    registerService(c,"reservationService",ReservationService)
+    registerService(c,"userService",UserService)
 
+    console.log("services ok");
     return next();
   });

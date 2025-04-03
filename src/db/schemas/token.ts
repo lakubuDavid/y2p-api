@@ -6,5 +6,5 @@ export const TokenTable = sqliteTable('tokens', {
   refreshToken: text('refresh_token').notNull(),
   isRevoked: integer('is_revoked', { mode: 'boolean' }).notNull().default(false),
   expiresAt: integer('expires_at').notNull(),
-  createdAt: integer('created_at').notNull().default(Date.now()),
+  createdAt: integer('created_at').notNull().$default(()=>Date.now()),
 });

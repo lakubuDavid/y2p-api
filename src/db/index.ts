@@ -1,19 +1,24 @@
 import { createMiddleware } from "hono/factory";
 import * as libsql from "@libsql/client";
-import { AppContext } from "../types";
-import { drizzle } from "drizzle-orm/libsql";
+import { AppContext, Bindings } from "../types";
+import { drizzle, LibSQLDatabase } from "drizzle-orm/libsql";
+import { config} from "dotenv";
+import { env } from "hono/adapter";
+
+export let db : LibSQLDatabase
 
 export const setupDb = () => createMiddleware(
-  createMiddleware((c:AppContext, next) => {
+  createMiddleware((c, next) => {
     const client = libsql.createClient({
-      url: c.env.TURSO_DB_URL,
-      authToken: c.env.TURSO_TOKEN,
+      url: env<Bindings>(c).TURSO_DB_URL || "",
+      authToken: env<Bindings>(c).TURSO_TOKEN,
     });
 
-    const db = drizzle({client})
+    db = drizzle({client})
     
     c.set("db",db)
     c.set("dbClient", client);
+    console.log("db ok")
     return next();
   }),
 );

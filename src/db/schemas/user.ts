@@ -7,12 +7,14 @@ export const UserTable = table("user", {
     autoIncrement: true,
   }),
   name: text().notNull(),
-  email: text().notNull(),
+  surname: text().notNull().default(""),
+  email: text().notNull().default(""),
+  phoneNumber:text().notNull().default(""),
   passwordHash: text().notNull(),
   salt: text().notNull(),
   createdAt: integer({ mode: "timestamp" }).$defaultFn(() => new Date()),
-  type: text({ enum: ["staff", "client", "anonymous"] }).default("client"),
+  type: text({ enum: ["staff", "client", "anonymous"] }).default("anonymous"),
 });
 
-export const CreateUser = typeof UserTable.$inferInsert;
-export const SelectUser = typeof UserTable.$inferSelect;
+export type CreateUser = typeof UserTable.$inferInsert;
+export type SelectUser = typeof UserTable.$inferSelect;

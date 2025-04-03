@@ -5,6 +5,7 @@ import { zValidator } from "@hono/zod-validator";
 import { AppContext, Bindings, Variables } from "../types";
 import { requirePermission, requireDepartment } from "../middlewares/iam";
 import { Department } from "../services/staff";
+import { getSignedCookie } from "hono/cookie";
 
 const staff = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -29,6 +30,8 @@ const updateStaffSchema = z.object({
 staff.get("/", requirePermission("view:staff"), async (c) => {
   const { staffService } = c.var;
   const department = c.req.query("department") as Department | undefined;
+
+  // console.log(cookies)
 
   try {
     const staffMembers = await staffService.getAllStaff(department);

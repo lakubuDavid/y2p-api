@@ -1,3 +1,4 @@
+// src/db/schemas/pet.ts
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { UserTable } from "./user";
 
@@ -9,6 +10,7 @@ export const PetTable = table("pet", {
   }).notNull(),
   name: text().notNull(),
   owner:integer().references(()=>UserTable.id).notNull(),
+  specie:text().notNull().default("unknown"),
   createdAt: integer({ mode: "timestamp" }).$defaultFn(() => new Date()).notNull(),
 });
 

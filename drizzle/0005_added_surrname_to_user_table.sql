@@ -1,0 +1,1 @@
+ALTER TABLE `tokens` ALTER COLUMN "created_at" TO "created_at" integer NOT NULL DEFAULT 1742619294422;

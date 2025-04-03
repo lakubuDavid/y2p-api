@@ -1,3 +1,4 @@
+// src/services/auth.ts
 import { LibSQLDatabase } from "drizzle-orm/libsql";
 import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
@@ -5,34 +6,42 @@ import { sign, verify } from "hono/jwt";
 import { UserTable } from "../db/schemas/user";
 import { TokenTable } from "../db/schemas/token";
 import { JWTPayload } from "hono/utils/jwt/types";
+import { BaseService } from "./service";
+import {
+  ErrorCodes,
+  Fail,
+  Failed,
+  ManagedError,
+  Result,
+} from "../../lib/error";
+import { getCookie } from "hono/cookie";
 
-interface TokenPayload extends JWTPayload {
+export interface TokenPayload extends JWTPayload {
   userId: number;
   email: string;
-  type: 'access' | 'refresh';
+  type: "access" | "refresh";
   exp?: number;
 }
 
-export class AuthService {
+export class AuthService extends BaseService {
   private readonly SALT_LENGTH = 32;
   private readonly KEY_LENGTH = 64;
   private readonly ITERATIONS = 100000;
-  private readonly DIGEST = 'sha512';
-  private readonly JWT_SECRET: string;
-  private readonly ACCESS_TOKEN_EXPIRY = 15 * 60; // 15 minutes
-  private readonly REFRESH_TOKEN_EXPIRY = 30 * 24 * 60 * 60; // 30 days
+  private readonly DIGEST = "sha512";
+  public static readonly ACCESS_TOKEN_EXPIRY = 15 * 60 * 1000; // 15 minutes
+  public static readonly REFRESH_TOKEN_EXPIRY = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-  constructor(
-    private db: LibSQLDatabase,
-    jwtSecret: string
-  ) {
-    if (!jwtSecret) throw new Error('JWT_SECRET is required');
-    this.JWT_SECRET = jwtSecret;
+  constructor(db: LibSQLDatabase, jwtSecret: string) {
+    super(db, jwtSecret);
   }
 
-  private async hashPassword(password: string, salt?: string): Promise<[string, string]> {
-    const useSalt = salt || crypto.randomBytes(this.SALT_LENGTH).toString('hex');
-    
+  private async hashPassword(
+    password: string,
+    salt?: string,
+  ): Promise<[string, string]> {
+    const useSalt =
+      salt || crypto.randomBytes(this.SALT_LENGTH).toString("hex");
+
     const hash = await new Promise<string>((resolve, reject) => {
       crypto.pbkdf2(
         password,
@@ -42,39 +51,48 @@ export class AuthService {
         this.DIGEST,
         (err, derivedKey) => {
           if (err) reject(err);
-          resolve(derivedKey.toString('hex'));
-        }
+          resolve(derivedKey.toString("hex"));
+        },
       );
     });
 
     return [hash, useSalt];
   }
 
-  private async generateTokenPair(userId: number, email: string): Promise<{
+  private async generateTokenPair(
+    userId: number,
+    email: string,
+  ): Promise<{
     accessToken: string;
     refreshToken: string;
   }> {
     const now = Math.floor(Date.now() / 1000);
 
-    const accessToken = await sign({
-      userId,
-      email,
-      type: 'access',
-      exp: now + this.ACCESS_TOKEN_EXPIRY,
-    } as TokenPayload, this.JWT_SECRET);
+    const accessToken = await sign(
+      {
+        userId,
+        email,
+        type: "access",
+        exp: now + AuthService.ACCESS_TOKEN_EXPIRY,
+      } as TokenPayload,
+      this.JWT_SECRET,
+    );
 
-    const refreshToken = await sign({
-      userId,
-      email,
-      type: 'refresh',
-      exp: now + this.REFRESH_TOKEN_EXPIRY,
-    } as TokenPayload, this.JWT_SECRET);
+    const refreshToken = await sign(
+      {
+        userId,
+        email,
+        type: "refresh",
+        exp: now + AuthService.REFRESH_TOKEN_EXPIRY,
+      } as TokenPayload,
+      this.JWT_SECRET,
+    );
 
     // Store refresh token in database
     await this.db.insert(TokenTable).values({
       userId,
       refreshToken,
-      expiresAt: now + this.REFRESH_TOKEN_EXPIRY,
+      expiresAt: now + AuthService.REFRESH_TOKEN_EXPIRY,
     });
 
     return { accessToken, refreshToken };
@@ -82,9 +100,9 @@ export class AuthService {
 
   public async verifyToken(token: string): Promise<TokenPayload> {
     try {
-      const payload = await verify(token, this.JWT_SECRET) as TokenPayload;
+      const payload = (await verify(token, this.JWT_SECRET)) as TokenPayload;
 
-      if (payload.type === 'refresh') {
+      if (payload.type === "refresh") {
         // Check if refresh token is revoked
         const [storedToken] = await this.db
           .select()
@@ -92,32 +110,37 @@ export class AuthService {
           .where(
             and(
               eq(TokenTable.refreshToken, token),
-              eq(TokenTable.isRevoked, false)
-            )
+              eq(TokenTable.isRevoked, false),
+            ),
           )
           .limit(1);
 
         if (!storedToken) {
-          throw new Error('Token has been revoked');
+          throw new Error("Token has been revoked");
         }
       }
 
       return payload;
     } catch (error) {
-      throw new Error('Invalid or expired token');
+      throw new Error("Invalid or expired token");
     }
   }
 
-  public async refreshTokens(refreshToken: string) {
+  public async refreshTokens(
+    refreshToken: string,
+  ): Promise<Result<{ accessToken: string; refreshToken: string }>> {
     try {
       const payload = await this.verifyToken(refreshToken);
-      
-      if (payload.type !== 'refresh') {
-        throw new Error('Invalid token type');
+
+      if (payload.type !== "refresh") {
+        return Fail("Invalid token type", ErrorCodes.INVALID_ARGUMENT);
       }
 
       // Generate new token pair
-      const tokens = await this.generateTokenPair(payload.userId, payload.email);
+      const tokens = await this.generateTokenPair(
+        payload.userId,
+        payload.email,
+      );
 
       // Revoke old refresh token
       await this.db
@@ -125,9 +148,10 @@ export class AuthService {
         .set({ isRevoked: true })
         .where(eq(TokenTable.refreshToken, refreshToken));
 
-      return tokens;
+      return { data: tokens };
     } catch (error) {
-      throw new Error('Invalid refresh token');
+      console.log(error)
+      return Fail("Invalid refresh token", ErrorCodes.VALIDATION_ERROR);
     }
   }
 
@@ -145,7 +169,7 @@ export class AuthService {
       .where(eq(TokenTable.userId, userId));
   }
 
-  public async login(email: string, password: string) {
+  public async login(email: string, password: string): Promise<Result<any>> {
     const [user] = await this.db
       .select()
       .from(UserTable)
@@ -153,24 +177,26 @@ export class AuthService {
       .limit(1);
 
     if (!user) {
-      throw new Error('User not found');
+     return Fail("Username or password invalid",ErrorCodes.INVALID_ARGUMENT);
     }
 
     const [hashedAttempt] = await this.hashPassword(password, user.salt);
-    
+
     if (hashedAttempt !== user.passwordHash) {
-      throw new Error('Invalid password');
+      return Fail("Username or password invalid",ErrorCodes.INVALID_ARGUMENT);
     }
 
     const tokens = await this.generateTokenPair(user.id, user.email);
 
     return {
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        },
+        ...tokens,
       },
-      ...tokens
     };
   }
 
@@ -182,9 +208,9 @@ export class AuthService {
       .limit(1);
 
     if (existingUser.length > 0) {
-      throw new Error('Email already registered');
+      throw new Error("Email already registered");
     }
-
+    console.log("no similar email");
     const [hashedPassword, salt] = await this.hashPassword(password);
 
     const [user] = await this.db
@@ -194,18 +220,19 @@ export class AuthService {
         email,
         passwordHash: hashedPassword,
         salt,
+        type: "client",
       })
       .returning();
 
     const tokens = await this.generateTokenPair(user.id, user.email);
-
+    console.log("tokesn generated");
     return {
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
       },
-      ...tokens
+      ...tokens,
     };
   }
 }
