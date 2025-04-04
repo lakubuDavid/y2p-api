@@ -2,13 +2,18 @@ name = "y2p-api"
 main = "src/index.ts"
 compatibility_date = "2024-12-27"
 
+# compatibility_flags = ["nodejs_compat"]
 compatibility_flags = ["nodejs_compat"]
+# compatibility_flags = ["nodejs_als"]
 [observability.logs]
 enabled = true
 [vars]
 TURSO_DB_URL = "libsql://y2p-lakubudavid.turso.i"
 TURSO_TOKEN = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3Mzg5ODg0MzcsImlkIjoiYTA4ZTdhMGMtMjgwZi00YzdhLWFiYWYtZDY5MGU1ODNkMzAwIn0.uB50IPnzRrThsW8qlv9-wzomnf_2StJ5Z9TYdTpzQckcHRgFLRY0rorCvI7uw8BBNnq8-NDNsZ4RFcbRh3gFAQ"
 JWT_SECRET = "1dd76ba7-fe16-4932-bea1-474a9ece8609"
+RESEND_TOKEN = "re_csLZB5xu_HbeYcCpPAm6pDuZ1VkvGrWCj"
+URL = "https://api.y2p.lakubudavid.me"
+CLIENT_URL = "https://secondyear-project.vercel.app"
 # MY_VAR = "my-variable"
 
 # [[kv_namespaces]]

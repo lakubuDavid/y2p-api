@@ -8,6 +8,7 @@
   "dependencies": {
     "@hono/zod-validator": "^0.4.2",
     "@libsql/client": "^0.14.0",
+    "@sentry/cloudflare": "^9.11.0",
     "@types/bcrypt": "^5.0.2",
     "bcrypt": "^5.1.1",
     "drizzle-orm": "^0.39.2",

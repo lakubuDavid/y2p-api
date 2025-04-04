@@ -1,4 +1,5 @@
 import { Context, Hono } from "hono";
+import * as Sentry from "@sentry/cloudflare";
 import { cors } from "hono/cors";
 import auth from "./routes/auth";
 import clientAuth from "./routes/auth.client";
@@ -59,6 +60,7 @@ app.route("/api/user", user);
 app.route("/api/admin", admin);
 
 app.onError((error, c) => {
+  Sentry.captureException(error)
   if (error instanceof ZodError) {
     // console.log(error.message)
     return c.json(
@@ -81,4 +83,10 @@ app.onError((error, c) => {
   );
 });
 
-export default app;
+// export default app;
+export default Sentry.withSentry(
+  (env) => ({
+    dsn: "https://12cb0f1c43e2e708102dd0c30c8d2d60@o4509096974417920.ingest.de.sentry.io/4509096977760336",
+  }),
+  app
+);

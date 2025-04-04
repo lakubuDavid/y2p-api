@@ -11,7 +11,7 @@ import {
 } from "../types";
 import { z, ZodError } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { SelectUser } from "../db/schemas/user";
+import { SelectUser, SelectUserData } from "../db/schemas/user";
 import { ErrorCodes, Fail, ManagedError, MatchHTTPCode } from "../../lib/error";
 import { SelectPet } from "../db/schemas/pet";
 import { ReservationStatus } from "../db/schemas/reservation";
@@ -31,7 +31,7 @@ reservation.post(
 
     const { userService, petService, reservationService } = c.var;
     try {
-      let user: SelectUser | undefined;
+      let user: SelectUserData | undefined;
       const { data, error } = await userService.get({
         email: userInfo.email,
         phoneNumber: userInfo.phoneNumber,
