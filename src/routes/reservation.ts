@@ -158,9 +158,9 @@ reservation.patch(
     try {
       const { reservationService } = c.var;
       const body = c.req.valid("json");
-      const options = {
-        date: body.date,
-      };
+      // const options = {
+      //   date: body.date,
+      // };
       const reservationId = c.req.valid("param");
       const { data, error } = await reservationService.update(reservationId, {
         date: body.date,

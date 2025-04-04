@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Context, Hono } from "hono";
 import { cors } from "hono/cors";
 import auth from "./routes/auth";
 import clientAuth from "./routes/auth.client";
@@ -19,6 +19,7 @@ import { responseFormatter } from "./middlewares/response";
 import { ErrorCodes, MatchHTTPCode } from "../lib/error";
 import { ZodError } from "zod";
 import { HTTPException } from "hono/http-exception";
+import { env } from "hono/adapter";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -26,15 +27,16 @@ config({ path: ".env" });
 
 app.use(responseFormatter);
 app.use(logger());
-app.use(
-  cors({
+app.use((c, next) => {
+  const client_url = env<Bindings>(c as Context).CLIENT_URL;
+  return cors({
     credentials: true,
     // origin:(origin,c)=>{
     //   return origin
     // },
-    origin: ["http://localhost:5173"],
-  }),
-);
+    origin: ["http://localhost:5173",client_url],
+  })(c, next);
+});
 app.use(setupDb());
 app.use(registerServices());
 app.use(authHeaders);
@@ -64,11 +66,15 @@ app.onError((error, c) => {
       MatchHTTPCode(ErrorCodes.VALIDATION_ERROR),
     );
   }
-  if(error instanceof HTTPException)
-  return c.json(
-    { error: error.cause ?? error.status, status: "error", message: error.message },
-    MatchHTTPCode(ErrorCodes.UNKNOWN),
-  );
+  if (error instanceof HTTPException)
+    return c.json(
+      {
+        error: error.cause ?? error.status,
+        status: "error",
+        message: error.message,
+      },
+      MatchHTTPCode(ErrorCodes.UNKNOWN),
+    );
   return c.json(
     { error: error.cause ?? error, status: "error", message: error.message },
     MatchHTTPCode(ErrorCodes.UNKNOWN),
