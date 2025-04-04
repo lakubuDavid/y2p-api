@@ -14,7 +14,8 @@ interface PossiblyFormattedResponse {
 export const responseFormatter = createMiddleware(async (c, next) => {
   await next();
   try {
-    const data = await c.res.clone().json();
+    const cloned_res = c.res.clone()
+    const data = await cloned_res.json();
     // console.log(data)
     const previousResponse = data as PossiblyFormattedResponse;
     let newResponse: PossiblyFormattedResponse = previousResponse;
@@ -40,6 +41,6 @@ export const responseFormatter = createMiddleware(async (c, next) => {
     newResponse.status = c.res.ok ? "ok" : "error";
     // console.log(newResponse);
     // return c.json(newResponse, c.res.status as StatusCode);
-    c.res = Response.json(newResponse);
+    c.res = Response.json(newResponse,{status:cloned_res.status});
   } catch (err) {}
 });
