@@ -220,4 +220,5 @@ auth.post("/logout-all", authenticatedOnly, async (c) => {
   return c.json({ status: "ok", message: "Logged out from all devices" });
 });
 
+
 export default auth;

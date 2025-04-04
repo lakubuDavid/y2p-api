@@ -1,6 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import { AppContext, Bindings } from "../types";
 import { AuthService } from "./auth";
+import { MagicLinkService } from "./magicLink";
 import assert from "assert";
 import { PetService } from "./pet";
 import { StaffService } from "./staff";
@@ -18,9 +19,10 @@ declare module "hono" {
     staffService: StaffService;
     reservationService: ReservationService;
     userService: UserService;
+    magicLinkService: MagicLinkService
   }
 }
-type ServiceName = keyof Omit<ContextVariableMap,"jwtPayload">
+type ServiceName = keyof Omit<ContextVariableMap, "jwtPayload">;
 
 const registerService = <TService extends BaseService>(
   c: Context,
@@ -38,11 +40,21 @@ export const registerServices = () =>
       "[Error : Service Registration] Missing JWT secret",
     );
 
-    registerService(c,"authService",AuthService)
-    registerService(c,"petService",PetService)
-    registerService(c,"staffService",StaffService)
-    registerService(c,"reservationService",ReservationService)
-    registerService(c,"userService",UserService)
+    registerService(c, "authService", AuthService);
+    registerService(c, "petService", PetService);
+    registerService(c, "staffService", StaffService);
+    registerService(c, "reservationService", ReservationService);
+    registerService(c, "userService", UserService);
+
+    c.set(
+      "magicLinkService",
+      new MagicLinkService(
+        c.var.db,
+        env<Bindings>(c).JWT_SECRET,
+        env<Bindings>(c).RESEND_TOKEN,
+        env<Bindings>(c).URL,
+      ),
+    );
 
     console.log("services ok");
     return next();

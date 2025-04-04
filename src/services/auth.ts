@@ -59,7 +59,7 @@ export class AuthService extends BaseService {
     return [hash, useSalt];
   }
 
-  private async generateTokenPair(
+  public async generateTokenPair(
     userId: number,
     email: string,
   ): Promise<{

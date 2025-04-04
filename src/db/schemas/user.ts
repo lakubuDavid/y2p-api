@@ -9,7 +9,7 @@ export const UserTable = table("user", {
   name: text().notNull(),
   surname: text().notNull().default(""),
   email: text().notNull().default(""),
-  phoneNumber:text().notNull().default(""),
+  phoneNumber: text().notNull().default(""),
   passwordHash: text().notNull(),
   salt: text().notNull(),
   createdAt: integer({ mode: "timestamp" }).$defaultFn(() => new Date()),
@@ -18,3 +18,4 @@ export const UserTable = table("user", {
 
 export type CreateUser = typeof UserTable.$inferInsert;
 export type SelectUser = typeof UserTable.$inferSelect;
+export type SelectUserData = Omit<SelectUser, "salt" | "passwordHash">;

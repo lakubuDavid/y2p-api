@@ -24,13 +24,13 @@ export const Fail = (message: string, code?: ErrorCodes) => {
     error: new ManagedError(message, code ?? ErrorCodes.UNKNOWN),
   };
 };
-export const Failed = (error:ManagedError)=>{
-  return {error}
-}
+export const Failed = (error: ManagedError) => {
+  return { error };
+};
 
 export class ManagedError extends Error {
   constructor(
-    message: string,
+    public message: string,
     public code: ErrorCodes,
   ) {
     super(message);
@@ -45,7 +45,11 @@ export enum ErrorCodes {
   USER_ALREADY_EXISTS,
   MISSING_AUTORIZATION,
   NOT_AUTHENTICATED,
-  NOT_FOUND
+  NOT_FOUND,
+  INVALID_TOKEN,
+  EMAIL_SENDING_FAILED,
+  USER_NOT_FOUND,
+  SERVER_MISCONFIGURATION,
 }
 
 export const MatchHTTPCode = (code: ErrorCodes) => {
@@ -54,17 +58,21 @@ export const MatchHTTPCode = (code: ErrorCodes) => {
       return 500; // Internal Server Error
     case ErrorCodes.VALIDATION_ERROR:
     case ErrorCodes.INVALID_ARGUMENT:
+    case ErrorCodes.INVALID_TOKEN:
       return 400; // Bad Request
     case ErrorCodes.NOT_FOUND:
+    case ErrorCodes.USER_NOT_FOUND:
       return 404; // Not found
     case ErrorCodes.RECORD_ALREADY_EXISTS:
       return 409; // Conflict
     case ErrorCodes.USER_ALREADY_EXISTS:
       return 409; // Conflict
     case ErrorCodes.MISSING_AUTORIZATION:
-      return 401 // Unauthorized
+      return 401; // Unauthorized
     case ErrorCodes.NOT_AUTHENTICATED:
-      return 403 // Forbidden
+      return 403; // Forbidden
+    case ErrorCodes.EMAIL_SENDING_FAILED:
+    case ErrorCodes.SERVER_MISCONFIGURATION:
     default:
       return 500; // Default to 500 for any unhandled cases
   }

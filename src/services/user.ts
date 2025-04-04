@@ -1,7 +1,7 @@
 import { LibSQLDatabase } from "drizzle-orm/libsql";
 import { BaseService } from "./service";
 import { UserInfoType } from "../types";
-import { SelectUser, UserTable } from "../db/schemas/user";
+import { SelectUser, SelectUserData, UserTable } from "../db/schemas/user";
 import { eq, or } from "drizzle-orm";
 import { Fail, Ok, Result, ErrorCodes, Failed } from "../../lib/error";
 
@@ -10,7 +10,7 @@ export class UserService extends BaseService {
     super(db, jwtSecret);
   }
 
-  public async create(userInfo: UserInfoType): Promise<Result<SelectUser>> {
+  public async create(userInfo: UserInfoType): Promise<Result<SelectUserData>> {
     try {
       const [existingUser] = await this.db
         .select()
@@ -18,11 +18,9 @@ export class UserService extends BaseService {
         .where(
           or(
             eq(UserTable.email, userInfo.email!),
-            eq(UserTable.phoneNumber, userInfo.phoneNumber!),
           ),
         )
         .limit(1);
-
       if (
         existingUser &&
         existingUser.email === userInfo.email &&
@@ -30,7 +28,7 @@ export class UserService extends BaseService {
       ) {
         return Fail("User already exists", ErrorCodes.USER_ALREADY_EXISTS);
       }
-
+      console.log("creating new user")
       const [user] = await this.db
         .insert(UserTable)
         .values({
@@ -41,10 +39,20 @@ export class UserService extends BaseService {
           passwordHash: "",
           salt: "",
         })
-        .returning();
+        .returning({
+          
+          id: UserTable.id,
+          name: UserTable.name,
+          surname: UserTable.surname,
+          email: UserTable.email,
+          phoneNumber: UserTable.phoneNumber,
+          createdAt: UserTable.createdAt,
+          type: UserTable.type,
+        });
 
       return Ok(user);
     } catch (error) {
+      console.log(error)
       return Fail(
         `Failed to create user: ${
           error instanceof Error ? error.message : "Unknown error"

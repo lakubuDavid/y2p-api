@@ -8,6 +8,9 @@ export type Bindings = {
   TURSO_DB_URL: string;
   TURSO_TOKEN: string;
   JWT_SECRET: string;
+  URL: string;
+  CLIENT_URL: string;
+  RESEND_TOKEN: string;
 };
 export type Variables = {
   dbClient: libsql.Client;
@@ -20,39 +23,45 @@ export const PetInfoSchema = z.object({
   name: z.string(),
   specie: z.string(),
 });
-export type PetInfoType = z.infer<typeof PetInfoSchema>
+export type PetInfoType = z.infer<typeof PetInfoSchema>;
 
-export const UserInfoSchema = z.object({
-  name: z.string(),
-  surname: z.string(),
-  email: z.string().email().optional().or(z.string()),
-  phoneNumber: z.string().optional(),
-}).refine(
-  data => (data.phoneNumber !== undefined && data.phoneNumber != "") || (data.email !== undefined && data.email != ""),
-  {
-    message: "Either phoneNumber or email must be provided",
-    path: ["contactInfo"]
+export const UserInfoSchema = z
+  .object({
+    name: z.string(),
+    surname: z.string(),
+    email: z.string().email().optional().or(z.string()),
+    phoneNumber: z.string().optional(),
   })
-;
-export type UserInfoType = z.infer<typeof UserInfoSchema>
+  .refine(
+    (data) =>
+      (data.phoneNumber !== undefined && data.phoneNumber != "") ||
+      (data.email !== undefined && data.email != ""),
+    {
+      message: "Either phoneNumber or email must be provided",
+      path: ["contactInfo"],
+    },
+  );
+export type UserInfoType = z.infer<typeof UserInfoSchema>;
 
 export const TimeSchema = z.object({
   from: z.string(),
   to: z.string(),
 });
-export type TimeType = z.infer<typeof TimeSchema>
+export type TimeType = z.infer<typeof TimeSchema>;
 
 export const CreateReservationSchema = z.object({
   date: z.date({ coerce: true }),
   time: TimeSchema,
 });
-export type CreateReservationType= z.infer<typeof CreateReservationSchema>
+export type CreateReservationType = z.infer<typeof CreateReservationSchema>;
 /**
  * Converts reservation.date + reservation.time.to into a JS Date.
  * @param reservation ReservationType
  * @returns Date object representing the combined date and time
  */
-export function dateFromReservationTo(reservation: CreateReservationType): Date {
+export function dateFromReservationTo(
+  reservation: CreateReservationType,
+): Date {
   const { date, time } = reservation;
   const [hours, minutes] = time.to.split(":").map(Number);
 
@@ -61,7 +70,9 @@ export function dateFromReservationTo(reservation: CreateReservationType): Date 
 
   return result;
 }
-export function dateFromReservationFrom(reservation: CreateReservationType): Date {
+export function dateFromReservationFrom(
+  reservation: CreateReservationType,
+): Date {
   const { date, time } = reservation;
   const [hours, minutes] = time.from.split(":").map(Number);
   // console.log(date,hours,minutes)
@@ -77,10 +88,20 @@ export const CreateReservationParams = z.object({
   petInfo: PetInfoSchema,
 });
 
-export type TimePeriod = "AM" | "PM" | ""
-export type TimeString = `${number}:${number} ${TimePeriod}`
+export type TimePeriod = "AM" | "PM" | "";
+export type TimeString = `${number}:${number} ${TimePeriod}`;
 
 export type TimeSlot = {
-  from:TimeString,
-  to:TimeString
-}
+  from: TimeString;
+  to: TimeString;
+};
+export const CreateUserSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  surname: z.string().min(1, "Surname is required"),
+  email: z.string().email("Invalid email address"),
+  phoneNumber: z
+    .string()
+    .min(7, "Phone number is too short")
+    .optional()
+    .or(z.literal("")),
+});

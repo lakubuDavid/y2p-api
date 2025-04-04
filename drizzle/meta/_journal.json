@@ -64,6 +64,13 @@
       "when": 1743231123819,
       "tag": "0008_added_time_field_to_reservation",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1743770054707,
+      "tag": "0009_add_magic_link_table",
+      "breakpoints": true
     }
   ]
 }
