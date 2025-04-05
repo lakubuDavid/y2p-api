@@ -36,5 +36,5 @@ export const clientServerTzOffset = (c:Context)=>{
   const clientTzOffset = getClientTimeZoneOffset(c)
   const serverTzOffset = new Date().getTimezoneOffset()
   console.log("offset tz:",clientTzOffset)
-  return clientTzOffset 
+  return clientTzOffset * 60 * 1000;
 }
