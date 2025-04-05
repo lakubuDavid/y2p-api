@@ -82,7 +82,11 @@ export class UserService extends BaseService {
         .from(UserTable);
       return Ok(users);
     } catch (err) {
-      return Fail("Database error", ErrorCodes.DATABASE_ERROR, err as Error);
+      return Fail(
+        err instanceof Error ? err.message : "Database error",
+        ErrorCodes.DATABASE_ERROR,
+        err as Error,
+      );
     }
   }
 

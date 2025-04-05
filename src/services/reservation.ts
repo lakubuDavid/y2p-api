@@ -113,7 +113,11 @@ export class ReservationService extends BaseService {
 
       return Ok(reservation);
     } catch (err) {
-      return Fail("Database error", ErrorCodes.DATABASE_ERROR, err as Error);
+      return Fail(
+        err instanceof Error ? err.message : "Database error",
+        ErrorCodes.DATABASE_ERROR,
+        err as Error,
+      );
     }
   }
   // export interface QueryReservationFilter {

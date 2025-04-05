@@ -6,6 +6,7 @@ import { ZodError } from "zod";
 interface PossiblyFormattedResponse {
   data?: any;
   error?: ManagedError | Error | any;
+  rawError?:Error,
   status?: string;
   message?: string;
   code?: ErrorCodes;

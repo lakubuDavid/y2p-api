@@ -9,6 +9,7 @@ export interface Success<T> {
 export interface Failure<E> {
   error: E;
   data?: never;
+  rawError?: Error
 }
 export type Result<T, E = ManagedError> = Success<T> | Failure<E>;
 
