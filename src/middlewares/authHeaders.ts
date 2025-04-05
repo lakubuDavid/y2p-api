@@ -1,15 +1,16 @@
 import { createMiddleware } from "hono/factory";
 import { getCookie, setCookie } from "hono/cookie";
 import { AuthService } from "../services/auth";
+import { clientServerTzOffset } from "../../lib/utils";
 
 export const authHeaders = createMiddleware(async (c, next) => {
   const cookies = getCookie(c);
   if (cookies["__token"]) {
     const req = new Request(c.req.raw);
-    
+
     req.headers.append("Authorization", `Bearer ${cookies["__token"]}`);
-    console.log("token",cookies["_token"])
-    console.log("new request",req)
+    console.log("token", cookies["_token"]);
+    console.log("new request", req);
     c.req.raw = req;
   } else {
     if (cookies["__refresh_token"]) {
@@ -18,20 +19,24 @@ export const authHeaders = createMiddleware(async (c, next) => {
         cookies["__refresh_token"],
       );
       if (error) {
-        console.log("can't refresh session",error)
-        
+        console.log("can't refresh session", error);
       } else {
         const { accessToken, refreshToken } = data;
 
+        const tzOffset = clientServerTzOffset(c);
         setCookie(c, "__token", accessToken, {
           // secure: true,
           httpOnly: true,
-          expires: new Date(Date.now() + AuthService.ACCESS_TOKEN_EXPIRY),
+          expires: new Date(
+            Date.now() + AuthService.ACCESS_TOKEN_EXPIRY + tzOffset,
+          ),
         });
         setCookie(c, "__refresh_token", refreshToken, {
           // secure: true,
           httpOnly: true,
-          expires: new Date(Date.now() + AuthService.REFRESH_TOKEN_EXPIRY),
+          expires: new Date(
+            Date.now() + AuthService.REFRESH_TOKEN_EXPIRY + tzOffset,
+          ),
         });
 
         const req = new Request(c.req.raw);

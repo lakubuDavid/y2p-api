@@ -6,6 +6,7 @@ import { AuthService, TokenPayload } from "../services/auth";
 import { setCookie } from "hono/cookie";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
+import { clientServerTzOffset } from "../../lib/utils";
 const auth = new Hono<{ Bindings: Bindings; Vatiables: Variables }>();
 
 auth.get(
@@ -33,15 +34,16 @@ auth.get(
       userData.id,
       userData.email,
     );
+    const tzOffset = clientServerTzOffset(c)
     setCookie(c, "__token", accessToken, {
       // secure: true,
       httpOnly: true,
-      expires: new Date(Date.now() + AuthService.ACCESS_TOKEN_EXPIRY),
+      expires: new Date(Date.now() + AuthService.ACCESS_TOKEN_EXPIRY + tzOffset),
     });
     setCookie(c, "__refresh_token", refreshToken, {
       // secure: true,
       httpOnly: true,
-      expires: new Date(Date.now() + AuthService.REFRESH_TOKEN_EXPIRY),
+      expires: new Date(Date.now() + AuthService.REFRESH_TOKEN_EXPIRY + tzOffset),
     });
     return c.redirect(`${_envs.CLIENT_URL}`);
   },

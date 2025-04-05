@@ -21,6 +21,7 @@ import {
 } from "../../lib/error";
 import { authenticatedOnly } from "../middlewares/authentication";
 import { Token } from "typescript";
+import { clientServerTzOffset, getClientTimeZoneOffset } from "../../lib/utils";
 
 const auth = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -61,6 +62,7 @@ const signupSchema = z.object({
 auth.post("/login", zValidator("json", loginSchema), async (c) => {
   const { authService } = c.var;
   const { email, password } = c.req.valid("json");
+
   try {
     const { data, error } = await authService.login(email, password);
     if (error) {
@@ -70,15 +72,21 @@ auth.post("/login", zValidator("json", loginSchema), async (c) => {
       );
     }
     const { user, accessToken, refreshToken } = data;
+
+    const tzOffset = clientServerTzOffset(c);
     setCookie(c, "__token", accessToken, {
       // secure: true,
       httpOnly: true,
-      expires: new Date(Date.now() + AuthService.ACCESS_TOKEN_EXPIRY),
+      expires: new Date(
+        Date.now() + AuthService.ACCESS_TOKEN_EXPIRY + tzOffset,
+      ),
     });
     setCookie(c, "__refresh_token", refreshToken, {
       // secure: true,
       httpOnly: true,
-      expires: new Date(Date.now() + AuthService.REFRESH_TOKEN_EXPIRY),
+      expires: new Date(
+        Date.now() + AuthService.REFRESH_TOKEN_EXPIRY + tzOffset,
+      ),
     });
     // console.log("fine", user, accessToken, refreshToken);
     return c.json({
@@ -114,15 +122,20 @@ auth.post("/signup", zValidator("json", signupSchema), async (c) => {
       password,
       name,
     );
+    const tzOffset = clientServerTzOffset(c);
     setCookie(c, "__token", accessToken, {
       // secure: true,
       httpOnly: true,
-      expires: new Date(Date.now() + AuthService.ACCESS_TOKEN_EXPIRY),
+      expires: new Date(
+        Date.now() + AuthService.ACCESS_TOKEN_EXPIRY + tzOffset,
+      ),
     });
     setCookie(c, "__refresh_token", refreshToken, {
       // secure: true,
       httpOnly: true,
-      expires: new Date(Date.now() + AuthService.REFRESH_TOKEN_EXPIRY),
+      expires: new Date(
+        Date.now() + AuthService.REFRESH_TOKEN_EXPIRY + tzOffset,
+      ),
     });
     return c.json(
       {
@@ -165,15 +178,21 @@ auth.post("/refresh", async (c) => {
         MatchHTTPCode(error.code),
       );
     }
-    setCookie(c, "__token", tokens.accessToken, {
+    const { accessToken, refreshToken } = tokens;
+    const tzOffset = clientServerTzOffset(c);
+    setCookie(c, "__token", accessToken, {
       // secure: true,
       httpOnly: true,
-      expires: new Date(Date.now() + AuthService.ACCESS_TOKEN_EXPIRY),
+      expires: new Date(
+        Date.now() + AuthService.ACCESS_TOKEN_EXPIRY + tzOffset,
+      ),
     });
-    setCookie(c, "__refresh_token", tokens.refreshToken, {
+    setCookie(c, "__refresh_token", refreshToken, {
       // secure: true,
       httpOnly: true,
-      expires: new Date(Date.now() + AuthService.REFRESH_TOKEN_EXPIRY),
+      expires: new Date(
+        Date.now() + AuthService.REFRESH_TOKEN_EXPIRY + tzOffset,
+      ),
     });
     return c.json({
       status: "ok",
@@ -219,6 +238,5 @@ auth.post("/logout-all", authenticatedOnly, async (c) => {
 
   return c.json({ status: "ok", message: "Logged out from all devices" });
 });
-
 
 export default auth;
