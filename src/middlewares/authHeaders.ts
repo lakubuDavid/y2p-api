@@ -1,6 +1,4 @@
 import { createMiddleware } from "hono/factory";
-import { jwt } from "hono/jwt";
-import { env } from "hono/adapter";
 import { getCookie, setCookie } from "hono/cookie";
 import { AuthService } from "../services/auth";
 
@@ -8,7 +6,10 @@ export const authHeaders = createMiddleware(async (c, next) => {
   const cookies = getCookie(c);
   if (cookies["__token"]) {
     const req = new Request(c.req.raw);
+    
     req.headers.append("Authorization", `Bearer ${cookies["__token"]}`);
+    console.log("token",cookies["_token"])
+    console.log("new request",req)
     c.req.raw = req;
   } else {
     if (cookies["__refresh_token"]) {
@@ -17,6 +18,8 @@ export const authHeaders = createMiddleware(async (c, next) => {
         cookies["__refresh_token"],
       );
       if (error) {
+        console.log("can't refresh session",error)
+        
       } else {
         const { accessToken, refreshToken } = data;
 
