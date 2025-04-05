@@ -75,14 +75,16 @@ auth.post("/login", zValidator("json", loginSchema), async (c) => {
 
     const tzOffset = clientServerTzOffset(c);
     setCookie(c, "__token", accessToken, {
-      // secure: true,
+      secure: true,
+      sameSite: "none",
       httpOnly: true,
       expires: new Date(
         Date.now() + AuthService.ACCESS_TOKEN_EXPIRY + tzOffset,
       ),
     });
     setCookie(c, "__refresh_token", refreshToken, {
-      // secure: true,
+      secure: true,
+      sameSite: "none",
       httpOnly: true,
       expires: new Date(
         Date.now() + AuthService.REFRESH_TOKEN_EXPIRY + tzOffset,
@@ -124,14 +126,16 @@ auth.post("/signup", zValidator("json", signupSchema), async (c) => {
     );
     const tzOffset = clientServerTzOffset(c);
     setCookie(c, "__token", accessToken, {
-      // secure: true,
+      secure: true,
+      sameSite: "none",
       httpOnly: true,
       expires: new Date(
         Date.now() + AuthService.ACCESS_TOKEN_EXPIRY + tzOffset,
       ),
     });
     setCookie(c, "__refresh_token", refreshToken, {
-      // secure: true,
+      secure: true,
+      sameSite: "none",
       httpOnly: true,
       expires: new Date(
         Date.now() + AuthService.REFRESH_TOKEN_EXPIRY + tzOffset,
@@ -181,14 +185,16 @@ auth.post("/refresh", async (c) => {
     const { accessToken, refreshToken } = tokens;
     const tzOffset = clientServerTzOffset(c);
     setCookie(c, "__token", accessToken, {
-      // secure: true,
+      secure: true,
+      sameSite: "none",
       httpOnly: true,
       expires: new Date(
         Date.now() + AuthService.ACCESS_TOKEN_EXPIRY + tzOffset,
       ),
     });
     setCookie(c, "__refresh_token", refreshToken, {
-      // secure: true,
+      secure: true,
+      sameSite: "none",
       httpOnly: true,
       expires: new Date(
         Date.now() + AuthService.REFRESH_TOKEN_EXPIRY + tzOffset,

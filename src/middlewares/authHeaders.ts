@@ -5,6 +5,7 @@ import { clientServerTzOffset } from "../../lib/utils";
 
 export const authHeaders = createMiddleware(async (c, next) => {
   const cookies = getCookie(c);
+  console.log("cookies",cookies)
   if (cookies["__token"]) {
     const req = new Request(c.req.raw);
 
@@ -26,14 +27,16 @@ export const authHeaders = createMiddleware(async (c, next) => {
         const tzOffset = clientServerTzOffset(c);
         console.log("tz offset",tzOffset)
         setCookie(c, "__token", accessToken, {
-          // secure: true,
+          secure: true,
+          sameSite:"none",
           httpOnly: true,
           expires: new Date(
             Date.now() + AuthService.ACCESS_TOKEN_EXPIRY + tzOffset,
           ),
         });
         setCookie(c, "__refresh_token", refreshToken, {
-          // secure: true,
+          secure: true,
+          sameSite:"none",
           httpOnly: true,
           expires: new Date(
             Date.now() + AuthService.REFRESH_TOKEN_EXPIRY + tzOffset,
