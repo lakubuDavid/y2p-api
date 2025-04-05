@@ -38,18 +38,19 @@ export class ManagedError extends Error {
 }
 
 export enum ErrorCodes {
-  UNKNOWN,
-  VALIDATION_ERROR,
-  INVALID_ARGUMENT,
-  RECORD_ALREADY_EXISTS,
-  USER_ALREADY_EXISTS,
-  MISSING_AUTORIZATION,
-  NOT_AUTHENTICATED,
-  NOT_FOUND,
-  INVALID_TOKEN,
-  EMAIL_SENDING_FAILED,
-  USER_NOT_FOUND,
-  SERVER_MISCONFIGURATION,
+  UNKNOWN = "unknown",
+  VALIDATION_ERROR = "validation_error",
+  INVALID_ARGUMENT = "invalid_argument",
+  RECORD_ALREADY_EXISTS = "record_already_exists",
+  USER_ALREADY_EXISTS = "user_already_exists",
+  MISSING_AUTORIZATION = "missing_autorization",
+  NOT_AUTHENTICATED = "not_authenticated",
+  NOT_FOUND = "not_found",
+  INVALID_TOKEN = "invalid_token",
+  EMAIL_SENDING_FAILED = "email_sending_failed",
+  USER_NOT_FOUND = "user_not_found",
+  SERVER_MISCONFIGURATION = "server_misconfiguration",
+  DATABASE_ERROR = "database_error",
 }
 
 export const MatchHTTPCode = (code: ErrorCodes) => {
@@ -72,6 +73,7 @@ export const MatchHTTPCode = (code: ErrorCodes) => {
     case ErrorCodes.NOT_AUTHENTICATED:
       return 403; // Forbidden
     case ErrorCodes.EMAIL_SENDING_FAILED:
+    case ErrorCodes.DATABASE_ERROR:
     case ErrorCodes.SERVER_MISCONFIGURATION:
     default:
       return 500; // Default to 500 for any unhandled cases

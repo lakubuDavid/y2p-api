@@ -21,6 +21,7 @@ import { ErrorCodes, MatchHTTPCode } from "../lib/error";
 import { ZodError } from "zod";
 import { HTTPException } from "hono/http-exception";
 import { env } from "hono/adapter";
+import { LibsqlError } from "@libsql/client";
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -35,7 +36,7 @@ app.use((c, next) => {
     // origin:(origin,c)=>{
     //   return origin
     // },
-    origin: ["http://localhost:5173",client_url],
+    origin: ["http://localhost:5173", client_url],
   })(c, next);
 });
 app.use(setupDb());
@@ -60,7 +61,18 @@ app.route("/api/user", user);
 app.route("/api/admin", admin);
 
 app.onError((error, c) => {
-  Sentry.captureException(error)
+  Sentry.captureException(error);
+  if (error instanceof LibsqlError) {
+    return c.json(
+      {
+        error: error,
+        status: "error",
+        message: error.message,
+        innerCode: error.code,
+      },
+      MatchHTTPCode(ErrorCodes.VALIDATION_ERROR),
+    );
+  }
   if (error instanceof ZodError) {
     // console.log(error.message)
     return c.json(
@@ -88,5 +100,5 @@ export default Sentry.withSentry(
   (env) => ({
     dsn: "https://12cb0f1c43e2e708102dd0c30c8d2d60@o4509096974417920.ingest.de.sentry.io/4509096977760336",
   }),
-  app
+  app,
 );
