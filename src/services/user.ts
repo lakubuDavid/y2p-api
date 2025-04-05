@@ -3,7 +3,14 @@ import { BaseService } from "./service";
 import { UserInfoType } from "../types";
 import { SelectUser, SelectUserData, UserTable } from "../db/schemas/user";
 import { eq, or } from "drizzle-orm";
-import { Fail, Ok, Result, ErrorCodes, Failed } from "../../lib/error";
+import {
+  Fail,
+  Ok,
+  Result,
+  ErrorCodes,
+  Failed,
+  MatchErrorCode,
+} from "../../lib/error";
 
 export class UserService extends BaseService {
   constructor(db: LibSQLDatabase, jwtSecret: string) {
@@ -15,11 +22,7 @@ export class UserService extends BaseService {
       const [existingUser] = await this.db
         .select()
         .from(UserTable)
-        .where(
-          or(
-            eq(UserTable.email, userInfo.email!),
-          ),
-        )
+        .where(or(eq(UserTable.email, userInfo.email!)))
         .limit(1);
       if (
         existingUser &&
@@ -28,7 +31,7 @@ export class UserService extends BaseService {
       ) {
         return Fail("User already exists", ErrorCodes.USER_ALREADY_EXISTS);
       }
-      console.log("creating new user")
+      console.log("creating new user");
       const [user] = await this.db
         .insert(UserTable)
         .values({
@@ -40,7 +43,6 @@ export class UserService extends BaseService {
           salt: "",
         })
         .returning({
-          
           id: UserTable.id,
           name: UserTable.name,
           surname: UserTable.surname,
@@ -52,12 +54,13 @@ export class UserService extends BaseService {
 
       return Ok(user);
     } catch (error) {
-      console.log(error)
+      console.log(error);
       return Fail(
         `Failed to create user: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }
@@ -79,7 +82,7 @@ export class UserService extends BaseService {
         .from(UserTable);
       return Ok(users);
     } catch (err) {
-      return Fail("Database error", ErrorCodes.UNKNOWN);
+      return Fail("Database error", ErrorCodes.DATABASE_ERROR, err as Error);
     }
   }
 
@@ -135,7 +138,8 @@ export class UserService extends BaseService {
         `Failed to get user: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }
@@ -153,7 +157,8 @@ export class UserService extends BaseService {
         `Failed to get user by ID: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }
@@ -173,7 +178,8 @@ export class UserService extends BaseService {
         `Failed to get user by email: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }
@@ -193,7 +199,8 @@ export class UserService extends BaseService {
         `Failed to get user by phone number: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }
@@ -224,7 +231,8 @@ export class UserService extends BaseService {
         `Failed to update user: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }
@@ -245,7 +253,8 @@ export class UserService extends BaseService {
         `Failed to delete user: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }
@@ -277,7 +286,8 @@ export class UserService extends BaseService {
         `Failed to reset password: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }

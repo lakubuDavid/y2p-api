@@ -1,3 +1,7 @@
+import { LibsqlError } from "@libsql/client";
+import { Resend } from "resend";
+import { ZodError } from "zod";
+
 export interface Success<T> {
   data: T;
   error?: never;
@@ -19,9 +23,10 @@ export const Ok = <T,>(data: T): Result<T> => {
 //     return {error:{...error,code:ErrorCodes.UNKNOWN}}
 //   }
 // };
-export const Fail = (message: string, code?: ErrorCodes) => {
+export const Fail = (message: string, code?: ErrorCodes,rawError?:Error) => {
   return {
     error: new ManagedError(message, code ?? ErrorCodes.UNKNOWN),
+    rawError
   };
 };
 export const Failed = (error: ManagedError) => {
@@ -79,3 +84,16 @@ export const MatchHTTPCode = (code: ErrorCodes) => {
       return 500; // Default to 500 for any unhandled cases
   }
 };
+
+export const MatchErrorCode = (err : Error)=>{
+  if(err instanceof LibsqlError){
+    return ErrorCodes.DATABASE_ERROR
+  }
+  if(err instanceof ZodError){
+    return ErrorCodes.VALIDATION_ERROR
+  }
+  if(err instanceof ManagedError){
+    return err.code
+  }
+  return ErrorCodes.UNKNOWN
+}

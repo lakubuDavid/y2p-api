@@ -2,7 +2,7 @@ import { LibSQLDatabase } from "drizzle-orm/libsql";
 import { BaseService } from "./service";
 import { SelectUser, SelectUserData, UserTable } from "../db/schemas/user";
 import { eq, and, gt } from "drizzle-orm";
-import { Fail, Ok, Result, ErrorCodes, ManagedError } from "../../lib/error";
+import { Fail, Ok, Result, ErrorCodes, ManagedError, MatchErrorCode } from "../../lib/error";
 import { nanoid } from "nanoid";
 import { Resend } from "resend";
 import { MagicLinkTable, SelectMagicLink } from "../db/schemas/magicLink";
@@ -76,7 +76,8 @@ export class MagicLinkService extends BaseService {
         `Failed to create magic link: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }
@@ -169,7 +170,8 @@ export class MagicLinkService extends BaseService {
         `Failed to verify magic link: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }

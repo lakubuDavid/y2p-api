@@ -10,9 +10,10 @@ import {
 import { PetTable } from "../db/schemas/pet";
 import { BaseService } from "./service";
 import { UserTable } from "../db/schemas/user";
-import { ErrorCodes, Fail, Ok, Result } from "../../lib/error";
+import { ErrorCodes, Fail, MatchErrorCode, Ok, Result } from "../../lib/error";
 
 import { normalizeDate, normalizedDate } from "../../lib/utils";
+import { LibsqlError } from "@libsql/client";
 
 interface TimeSlot {
   from: string;
@@ -42,38 +43,40 @@ export class ReservationService extends BaseService {
   constructor(db: LibSQLDatabase, jwtSecret: string) {
     super(db, jwtSecret);
   }
-  public async cancel(id: number) : Promise<Result<SelectReservation>> {
+  public async cancel(id: number): Promise<Result<SelectReservation>> {
     try {
       const [reservation] = await this.db
         .update(ReservationTable)
         .set({
-          status:"canceled"
+          status: "canceled",
         })
         .where(eq(ReservationTable.id, id))
         .returning();
-      return Ok(reservation)
+      return Ok(reservation);
     } catch (error) {
       return Fail(
         `Failed to update reservation: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }
-  public async delete(id: number) : Promise<Result<SelectReservation>> {
+  public async delete(id: number): Promise<Result<SelectReservation>> {
     try {
       const [reservation] = await this.db
         .delete(ReservationTable)
         .where(eq(ReservationTable.id, id))
         .returning();
-      return Ok(reservation)
+      return Ok(reservation);
     } catch (error) {
       return Fail(
         `Failed to update reservation: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }
@@ -96,7 +99,8 @@ export class ReservationService extends BaseService {
         `Failed to update reservation: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }
@@ -109,7 +113,7 @@ export class ReservationService extends BaseService {
 
       return Ok(reservation);
     } catch (err) {
-      return Fail("Database error");
+      return Fail("Database error", ErrorCodes.DATABASE_ERROR, err as Error);
     }
   }
   // export interface QueryReservationFilter {
@@ -205,7 +209,8 @@ export class ReservationService extends BaseService {
         `Failed to fetch reservations: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }
@@ -341,7 +346,8 @@ export class ReservationService extends BaseService {
         `Failed to create reservation: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }
@@ -435,7 +441,8 @@ export class ReservationService extends BaseService {
         `Failed to generate time slots: ${
           error instanceof Error ? error.message : "Unknown error"
         }`,
-        ErrorCodes.UNKNOWN,
+        MatchErrorCode(error as Error),
+        error as Error,
       );
     }
   }

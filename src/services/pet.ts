@@ -36,7 +36,7 @@ export class PetService extends BaseService {
     const [result] = await this.db.insert(PetTable).values(petInfo).returning();
 
     if (!result) {
-      Fail("Pets not found", ErrorCodes.UNKNOWN);
+      Fail("Pets not found", ErrorCodes.NOT_FOUND);
     }
     return Ok(result);
     // return result;

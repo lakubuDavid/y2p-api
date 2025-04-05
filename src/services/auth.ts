@@ -151,7 +151,7 @@ export class AuthService extends BaseService {
       return { data: tokens };
     } catch (error) {
       console.log(error)
-      return Fail("Invalid refresh token", ErrorCodes.VALIDATION_ERROR);
+      return Fail("Invalid refresh token", ErrorCodes.INVALID_ARGUMENT,error as Error);
     }
   }
 
