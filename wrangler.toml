@@ -8,8 +8,8 @@ compatibility_flags = ["nodejs_compat"]
 [observability.logs]
 enabled = true
 [vars]
-TURSO_DB_URL = "libsql://y2p-lakubudavid.turso.i"
-TURSO_TOKEN = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3Mzg5ODg0MzcsImlkIjoiYTA4ZTdhMGMtMjgwZi00YzdhLWFiYWYtZDY5MGU1ODNkMzAwIn0.uB50IPnzRrThsW8qlv9-wzomnf_2StJ5Z9TYdTpzQckcHRgFLRY0rorCvI7uw8BBNnq8-NDNsZ4RFcbRh3gFAQ"
+TURSO_DB_URL = "libsql://y2p-lakubudavid.turso.io"
+TURSO_TOKEN = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NDM4MjQ1NTcsImlkIjoiYTA4ZTdhMGMtMjgwZi00YzdhLWFiYWYtZDY5MGU1ODNkMzAwIn0.-UJOik5PE6bNOUDxsLv3DD3HPujJQUtX2ReTc5g_8veMd151lxOHa67SR3x1rDWiYFnkpmN5eBkE6mVzxu32AQ"
 JWT_SECRET = "1dd76ba7-fe16-4932-bea1-474a9ece8609"
 RESEND_TOKEN = "re_csLZB5xu_HbeYcCpPAm6pDuZ1VkvGrWCj"
 URL = "https://api.y2p.lakubudavid.me"
