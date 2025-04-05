@@ -62,7 +62,13 @@ app.route("/api/admin", admin);
 
 app.onError((error, c) => {
   Sentry.withScope((scope) => {
-    scope.setContext("hono-context", { context: c });
+    scope.setContext("hono-context", {
+      ...c,
+      req: JSON.stringify(c.req),
+      res: JSON.stringify(c.newResponse),
+      env: JSON.stringify(c.env),
+      error:c.error,
+    });
     scope.captureException(error);
   });
   if (error instanceof LibsqlError) {

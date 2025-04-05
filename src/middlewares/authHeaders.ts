@@ -24,6 +24,7 @@ export const authHeaders = createMiddleware(async (c, next) => {
         const { accessToken, refreshToken } = data;
 
         const tzOffset = clientServerTzOffset(c);
+        console.log("tz offset",tzOffset)
         setCookie(c, "__token", accessToken, {
           // secure: true,
           httpOnly: true,
