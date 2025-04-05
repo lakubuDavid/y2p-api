@@ -67,7 +67,7 @@ app.onError((error, c) => {
       req: JSON.stringify(c.req),
       res: JSON.stringify(c.newResponse),
       env: JSON.stringify(c.env),
-      error:c.error,
+      error: c.error,
     });
     scope.captureException(error);
   });
@@ -108,6 +108,14 @@ app.onError((error, c) => {
 export default Sentry.withSentry(
   (env) => ({
     dsn: "https://12cb0f1c43e2e708102dd0c30c8d2d60@o4509096974417920.ingest.de.sentry.io/4509096977760336",
+
+    integrations: [
+      Sentry.captureConsoleIntegration(),
+    
+      Sentry.fetchIntegration(),
+      Sentry.zodErrorsIntegration(),
+      Sentry.requestDataIntegration()
+    ],
   }),
   app,
 );
