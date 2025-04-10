@@ -71,6 +71,13 @@
       "when": 1743770054707,
       "tag": "0009_add_magic_link_table",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1744123714928,
+      "tag": "0010_date_object_for_reservation",
+      "breakpoints": true
     }
   ]
 }

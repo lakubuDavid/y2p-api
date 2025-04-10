@@ -7,6 +7,9 @@ import admin from "./routes/admin";
 import pet from "./routes/pet";
 import staff from "./routes/staff";
 import user from "./routes/user";
+
+import views from "@/routes/_test"
+
 import { Bindings, Variables } from "./types";
 import { setupDb } from "./db";
 import { registerServices } from "./services";
@@ -48,7 +51,7 @@ app.get("/", (c) => {
 });
 
 app.get("/api", (c) => {
-  const co = getCookie(c, "__token");
+  // const co = getCookie(c, "__token");
   return c.text("Something");
 });
 
@@ -59,6 +62,8 @@ app.route("/api/staff", staff);
 app.route("/api/reservation", reservation);
 app.route("/api/user", user);
 app.route("/api/admin", admin);
+
+app.route("/views",views)
 
 app.onError((error, c) => {
   Sentry.withScope((scope) => {

@@ -3,6 +3,8 @@ import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { PetTable } from "./pet";
 import { UserTable } from "./user";
 
+import {ReservationDate} from "@/types"
+
 const table = sqliteTable;
 
 export const ReservationTable = table("reservation", {
@@ -13,7 +15,8 @@ export const ReservationTable = table("reservation", {
   userId: integer().references(() => UserTable.id),
 
   createdAt: integer({ mode: "timestamp" }).$defaultFn(() => new Date()),
-  date: integer({ mode: "timestamp" }).notNull(),
+  // date: integer({ mode: "timestamp" }).notNull(),
+  date: text({mode:"json"}).$type<ReservationDate>().notNull(),
   timeFrom: text().notNull(),
   timeTo: text().notNull(),
   status: text({

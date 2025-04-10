@@ -3,7 +3,9 @@
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",
-    "moduleResolution": "Bundler",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
     "strict": true,
     "skipLibCheck": true,
     "lib": [
@@ -15,10 +17,32 @@
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx",
     "paths": {
-      "@shared/*": [
+      "@/shared/*": [
         "../../shared/*"
+      ],
+      "@/services/*": [
+        "./src/services/*"
+      ],
+      "@/middlewares/*": [
+        "./src/middlewares/*"
+      ],
+      "@/routes/*": [
+        "./src/routes/*"
+      ],
+      "@/views/*": [
+        "./src/views/*"
+      ],
+      "@/types": [
+        "./src/types"
+      ],
+      "@/models/*": [
+        "./src/db/schemas/*"
+      ],
+      "@/libs/*": [
+        "./lib/*"
       ]
     },
+    "baseUrl": "./"
   },
   "include": [
     "./src/*.ts"

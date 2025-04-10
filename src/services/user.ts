@@ -66,7 +66,7 @@ export class UserService extends BaseService {
   }
 
   public async all(): Promise<
-    Result<Omit<SelectUser, "salt" | "passwordHash">[]>
+    Result<SelectUserData[]>
   > {
     try {
       const users = await this.db

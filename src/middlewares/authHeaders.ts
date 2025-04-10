@@ -5,13 +5,13 @@ import { clientServerTzOffset } from "../../lib/utils";
 
 export const authHeaders = createMiddleware(async (c, next) => {
   const cookies = getCookie(c);
-  console.log("cookies",cookies)
+  // console.log("cookies",cookies)
   if (cookies["__token"]) {
     const req = new Request(c.req.raw);
 
     req.headers.append("Authorization", `Bearer ${cookies["__token"]}`);
-    console.log("token", cookies["_token"]);
-    console.log("new request", req);
+    // console.log("token", cookies["_token"]);
+    // console.log("new request", req);
     c.req.raw = req;
   } else {
     if (cookies["__refresh_token"]) {

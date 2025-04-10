@@ -33,6 +33,7 @@ export class PetService extends BaseService {
   }
 
   public async add(petInfo: CreatePet) {
+    console.log("add called")
     const [result] = await this.db.insert(PetTable).values(petInfo).returning();
 
     if (!result) {
@@ -51,13 +52,14 @@ export class PetService extends BaseService {
     userId?: number;
     name?: string;
   }) {
+  console.log("get called")
     if (
       (id == undefined && (userId == undefined || name == undefined)) || // No pet id AND no user Id with pet name
       (userId && name == undefined) // User id but no pet name
     ) {
-      throw new Error(
+      return Fail(
         "Must specify either the pet Id or the userId with the pet name",
-      );
+      ErrorCodes.NOT_FOUND);
     }
 
     return id ? this.getById(id) : this.getByUser(userId!, name!);

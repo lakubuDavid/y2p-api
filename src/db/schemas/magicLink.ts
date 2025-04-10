@@ -12,7 +12,7 @@ export const MagicLinkTable = table("magic_link", {
     .references(() => UserTable.id, { onDelete: "cascade" }),
   token: text().notNull().unique(),
   expiresAt: integer({ mode: "timestamp" }).notNull(),
-  used: integer({ mode: "boolean" }).default(false),
+  used: integer({ mode: "boolean" }).notNull().default(false),
   createdAt: integer({ mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 

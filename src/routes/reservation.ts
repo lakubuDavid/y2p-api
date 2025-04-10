@@ -8,6 +8,7 @@ import {
   CreateReservationParams,
   Variables,
   CreateReservationSchema,
+  ReservationDateSchema,
 } from "../types";
 import { z, ZodError } from "zod";
 import { zValidator } from "@hono/zod-validator";
@@ -24,10 +25,6 @@ reservation.post(
   zValidator("json", CreateReservationParams),
   async (c) => {
     const { petInfo, userInfo, reservationInfo } = c.req.valid("json");
-
-    // console.log(petInfo);
-    // console.log(userInfo);
-    // console.log(reservationInfo);
 
     const { userService, petService, reservationService } = c.var;
     try {
@@ -48,14 +45,31 @@ reservation.post(
         }
         user = data;
       }
-
-      let { data: pet, error: getError } =
-        (await petService.get({ userId: user.id, name: petInfo.name })) ??
-        (await petService.add({ ...petInfo, owner: user.id }));
-
-      if (getError) {
-        return c.json({ error }, MatchHTTPCode(getError.code));
+      let pet: SelectPet | undefined;
+      // let { data: pet, error: getError } =
+      //   (await petService.get({ userId: user.id, name: petInfo.name })) ??
+      //   (await petService.add({ ...petInfo, owner: user.id }));
+      const existingPetResult = await petService.get({
+        userId: user.id,
+        name: petInfo.name,
+      });
+      if (existingPetResult.error || !existingPetResult.data) {
+        const { error } = existingPetResult;
+        if (error) {
+          return c.json({ error }, MatchHTTPCode(error.code));
+        }
+        const { data: newPet, error: newPetError } = await petService.add({
+          ...petInfo,
+          owner: user.id,
+        });
+        if (newPetError) {
+          return c.json({ newPetError }, MatchHTTPCode(newPetError.code));
+        }
+        pet = newPet
+      } else {
+        pet = existingPetResult.data;
       }
+      console.log(pet, petInfo);
 
       const { data: result, error: createReservationError } =
         await reservationService.create({
@@ -80,7 +94,7 @@ reservation.post(
 reservation.get("/slots", async (c) => {
   const { reservationService } = c.var;
   const date = new Date(c.req.query("date") ?? new Date().toISOString());
-
+  console.log("date", date);
   const { data: slots } = await reservationService.generateTimeSlots({ date });
   // console.log(slots);
 
@@ -90,7 +104,7 @@ reservation.get("/slots", async (c) => {
 const QueryParamsSchema = z.object({
   userId: z.number({ coerce: true }).optional(),
   petId: z.number({ coerce: true }).optional(),
-  date: z.date({ coerce: true }).optional(),
+  date: ReservationDateSchema.optional(),
   // status: z
   //   .enum(["rescheduled", "canceled", "oncoming", "done", "late"])
   //   .optional(),
@@ -145,7 +159,7 @@ reservation.patch(
     "json",
     z
       .object({
-        date: z.date(),
+        date: ReservationDateSchema,
         time: z.object({
           from: z.string(),
           to: z.string(),

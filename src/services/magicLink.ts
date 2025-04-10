@@ -2,10 +2,19 @@ import { LibSQLDatabase } from "drizzle-orm/libsql";
 import { BaseService } from "./service";
 import { SelectUser, SelectUserData, UserTable } from "../db/schemas/user";
 import { eq, and, gt } from "drizzle-orm";
-import { Fail, Ok, Result, ErrorCodes, ManagedError, MatchErrorCode } from "../../lib/error";
+import {
+  Fail,
+  Ok,
+  Result,
+  ErrorCodes,
+  ManagedError,
+  MatchErrorCode,
+} from "../../lib/error";
 import { nanoid } from "nanoid";
 import { Resend } from "resend";
 import { MagicLinkTable, SelectMagicLink } from "../db/schemas/magicLink";
+
+import { MagicLinkEmail } from "../views/emails/MagicLink";
 
 export class MagicLinkService extends BaseService {
   private resend: Resend;
@@ -92,20 +101,30 @@ export class MagicLinkService extends BaseService {
     try {
       const magicLinkUrl = `${this.appUrl}/auth/verify?token=${magicLink.token}`;
 
+      // await this.resend.emails.send({
+      //   from: "no-reply@lakubudavid.me",
+      //   to: user.email,
+      //   subject: "Your Login Link",
+      //   html: `
+      //     <h2>Welcome to our app</h2>
+      //     <p>Hello ${user.name},</p>
+      //     <p>Click the link below to sign in to your account:</p>
+      //     <a href="${magicLinkUrl}" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px;">Sign In</a>
+      //     <p>This link will expire in 24 hours.</p>
+      //     <p>If you didn't request this link, you can safely ignore this email.</p>
+      //   `,
+      // });
+
       await this.resend.emails.send({
         from: "no-reply@lakubudavid.me",
         to: user.email,
         subject: "Your Login Link",
-        html: `
-          <h2>Welcome to our app</h2>
-          <p>Hello ${user.name},</p>
-          <p>Click the link below to sign in to your account:</p>
-          <a href="${magicLinkUrl}" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px;">Sign In</a>
-          <p>This link will expire in 24 hours.</p>
-          <p>If you didn't request this link, you can safely ignore this email.</p>
-        `,
+        html: MagicLinkEmail({
+          magicLink,
+          appUrl: this.appUrl,
+          userName: user.name,
+        }).toString(),
       });
-
       return Ok(true);
     } catch (error) {
       return Fail(

@@ -14,6 +14,14 @@ import { ErrorCodes, Fail, MatchErrorCode, Ok, Result } from "../../lib/error";
 
 import { normalizeDate, normalizedDate } from "../../lib/utils";
 import { LibsqlError } from "@libsql/client";
+import {
+  dateFromReservation,
+  dateFromReservationDate,
+  dateFromReservationFrom,
+  ReservationDate,
+  reservationDateFromDate,
+} from "@/types";
+import { DateTime } from "luxon";
 
 interface TimeSlot {
   from: string;
@@ -33,7 +41,7 @@ export interface QueryReservationFilter {
   status?: ReservationStatus[];
   userId?: number;
   petId?: number;
-  date?: Date;
+  date?: ReservationDate;
 }
 // interface QueryReservationFilter{
 //   status? : `${ReservationStatus}`
@@ -182,7 +190,8 @@ export class ReservationService extends BaseService {
         const staleReservations = allReservations.filter(
           (reservation) =>
             reservation.reservation.status === "oncoming" &&
-            new Date(reservation.reservation.date).getTime() < now.getTime(),
+            dateFromReservation(reservation.reservation).getTime() <
+              now.getTime(),
         );
 
         if (staleReservations.length > 0) {
@@ -235,71 +244,61 @@ export class ReservationService extends BaseService {
           ErrorCodes.VALIDATION_ERROR,
         );
       }
-      console.log("date", data.date);
-      const _normalizedDate = normalizedDate(data.date);
-      console.log("normalized date", _normalizedDate);
-      console.log("normalized utc date", normalizedDate(data.date));
-      console.log("date", data.date);
+      // console.log("date", data.date);
+      // const _normalizedDate = normalizedDate(data.date);
+      // console.log("normalized date", _normalizedDate);
+      // console.log("normalized utc date", normalizedDate(data.date));
+      // console.log("date", data.date);
 
-      // Normalize the date to 00:00:00 for comparison
-      const dateStart = new Date(data.date);
-      dateStart.setUTCHours(0, 0, 0, 0);
-      console.log("start", dateStart);
+      // // Normalize the date to 00:00:00 for comparison
+      // const dateStart = new Date(data.date);
+      // dateStart.setUTCHours(0, 0, 0, 0);
+      // console.log("start", dateStart);
 
-      const dateEnd = new Date(data.date);
-      dateEnd.setUTCHours(23, 59, 59, 999);
-      console.log("end", dateEnd);
+      // const dateEnd = new Date(data.date);
+      // dateEnd.setUTCHours(23, 59, 59, 999);
+      // console.log("end", dateEnd);
 
       // Fetch all reservations for the same day
       const reservations = await this.db
         .select()
         .from(ReservationTable)
-        .where(
-          and(
-            gte(ReservationTable.date, dateStart),
-            lte(ReservationTable.date, dateEnd),
-          ),
-        )
+        .where(eq(ReservationTable.date, data.date))
         .all();
 
       console.log("todays reservations", reservations);
 
-      const newFrom = new Date(dateStart);
       const [fromHours, fromMinutes] = data.timeFrom.split(":").map(Number);
-      newFrom.setUTCHours(fromHours, fromMinutes, 0, 0);
+      let newFrom = DateTime.utc().set({
+        hour: fromHours,
+        minute: fromMinutes,
+      });
 
-      const newTo = new Date(dateStart);
       const [toHours, toMinutes] = data.timeTo.split(":").map(Number);
-      newTo.setUTCHours(toHours, toMinutes, 0, 0);
-
-      console.log("with time from,to", newFrom, newTo);
+      let newTo = DateTime.utc().set({ hour: toHours, minute: toMinutes });
 
       // Check for overlapping reservations
       const isOverlapping = reservations.some((res) => {
-        const existingFrom = new Date(res.date);
         const [eFromHours, eFromMinutes] = res.timeFrom.split(":").map(Number);
-        console.log("existsing from", existingFrom);
-        existingFrom.setHours(eFromHours, eFromMinutes, 0, 0);
-        console.log("existsing from", existingFrom);
-
-        const existingTo = new Date(res.date);
         const [eToHours, eToMinutes] = res.timeTo.split(":").map(Number);
-        console.log("existsing to", existingTo);
-        existingTo.setHours(eToHours, eToMinutes, 0, 0);
-        console.log("existsing to", existingTo);
 
-        return (
-          (newFrom >= existingFrom && newFrom < existingTo) || // Starts inside another reservation
-          (newTo > existingFrom && newTo <= existingTo) || // Ends inside another reservation
-          (newFrom <= existingFrom && newTo >= existingTo) // Completely overlaps another reservation
-        );
+        // Create DateTime objects for existing reservation
+        const existingFrom = DateTime.utc().set({
+          hour: eFromHours,
+          minute: eFromMinutes,
+        });
+        const existingTo = DateTime.utc().set({
+          hour: eToHours,
+          minute: eToMinutes,
+        });
+        return newFrom < existingTo && newTo > existingFrom;
       });
 
       if (isOverlapping) {
         return Fail(
           `Time slot ${data.timeFrom} - ${
             data.timeTo
-          } is already reserved for ${new Date(
+          } is already reserved for ${dateFromReservationDate(
             data.date,
           ).toLocaleDateString()}`,
           ErrorCodes.RECORD_ALREADY_EXISTS,
@@ -339,7 +338,6 @@ export class ReservationService extends BaseService {
         .insert(ReservationTable)
         .values({
           ...data,
-          date: _normalizedDate,
           status: "oncoming",
         })
         .returning();
@@ -364,7 +362,6 @@ export class ReservationService extends BaseService {
   }: GenerateTimeSlotsOptions): Promise<Result<TimeSlot[]>> {
     try {
       // Normalize the given date to midnight.
-      const _normalizedDate = normalizedDate(date);
 
       // Retrieve reserved slots for that day.
       let reservedSlots: TimeSlot[] = [];
@@ -375,7 +372,7 @@ export class ReservationService extends BaseService {
             timeTo: ReservationTable.timeTo,
           })
           .from(ReservationTable)
-          .where(eq(ReservationTable.date, _normalizedDate))
+          .where(eq(ReservationTable.date, reservationDateFromDate(date)))
           .all();
 
         reservedSlots = reservations.map((reservation) => ({
@@ -408,7 +405,7 @@ export class ReservationService extends BaseService {
       for (let hour = startHour; hour < endHour; hour++) {
         for (let minute = 0; minute < 60; minute += durationMinutes) {
           // Create slot start and end Date objects.
-          const slotStart = new Date(_normalizedDate);
+          const slotStart = new Date(date);
           slotStart.setHours(hour, minute, 0, 0);
           const slotEnd = new Date(slotStart);
           slotEnd.setMinutes(slotStart.getMinutes() + durationMinutes);
@@ -426,7 +423,7 @@ export class ReservationService extends BaseService {
           });
 
           const newSlot: TimeSlot = { from, to };
-          // console.log(newSlot);
+          console.log(newSlot);
           // Check for any overlap with reserved slots.
           const hasOverlap = reservedSlots.some((reserved) =>
             overlaps(newSlot, reserved),

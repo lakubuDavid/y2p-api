@@ -14,8 +14,9 @@ export const UserTable = table("user", {
   salt: text().notNull(),
   createdAt: integer({ mode: "timestamp" }).$defaultFn(() => new Date()),
   type: text({ enum: ["staff", "client", "anonymous"] }).default("anonymous"),
+  verified: integer({ mode: "boolean" }).default(true),
 });
 
 export type CreateUser = typeof UserTable.$inferInsert;
 export type SelectUser = typeof UserTable.$inferSelect;
-export type SelectUserData = Omit<SelectUser, "salt" | "passwordHash">;
+export type SelectUserData = Omit<SelectUser, "salt" | "passwordHash"|"verified">;
