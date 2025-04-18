@@ -6,6 +6,7 @@ import assert from "assert";
 import { PetService } from "./pet";
 import { StaffService } from "./staff";
 import { ReservationService } from "./reservation";
+import { NotificationService } from "./notification";
 import { env } from "hono/adapter";
 import { BaseService } from "./service";
 import { Context, ContextVariableMap } from "hono";
@@ -19,7 +20,8 @@ declare module "hono" {
     staffService: StaffService;
     reservationService: ReservationService;
     userService: UserService;
-    magicLinkService: MagicLinkService
+    magicLinkService: MagicLinkService;
+    notificationService: NotificationService;
   }
 }
 type ServiceName = keyof Omit<ContextVariableMap, "jwtPayload">;
@@ -53,6 +55,15 @@ export const registerServices = () =>
         env<Bindings>(c).JWT_SECRET,
         env<Bindings>(c).RESEND_TOKEN,
         env<Bindings>(c).URL,
+      ),
+    );
+
+    c.set(
+      "notificationService",
+      new NotificationService(
+        env<Bindings>(c).RESEND_TOKEN,
+        env<Bindings>(c).URL,
+        env<Bindings>(c).EMAIL_SENDER ?? "no-reply@lakubudavid.me"
       ),
     );
 

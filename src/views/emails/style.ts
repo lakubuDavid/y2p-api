@@ -12,5 +12,6 @@ export const style = {
   container: css`
     padding:10px;
     font-family:'Inter';
+    width:"500px"
   `
 };

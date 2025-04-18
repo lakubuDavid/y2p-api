@@ -7,8 +7,9 @@ import {
   dateFromReservationFrom,
   CreateReservationParams,
   Variables,
-  CreateReservationSchema,
+  ReservationInfoSchema,
   ReservationDateSchema,
+  toDate,
 } from "../types";
 import { z, ZodError } from "zod";
 import { zValidator } from "@hono/zod-validator";
@@ -17,6 +18,7 @@ import { ErrorCodes, Fail, ManagedError, MatchHTTPCode } from "../../lib/error";
 import { SelectPet } from "../db/schemas/pet";
 import { ReservationStatus } from "../db/schemas/reservation";
 import { ReservationService } from "../services/reservation";
+import { PetInfo } from "@/services/pet";
 
 const reservation = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -26,62 +28,90 @@ reservation.post(
   async (c) => {
     const { petInfo, userInfo, reservationInfo } = c.req.valid("json");
 
-    const { userService, petService, reservationService } = c.var;
+    const { userService, petService, reservationService, notificationService } =
+      c.var;
     try {
-      let user: SelectUserData | undefined;
-      const { data, error } = await userService.get({
-        email: userInfo.email,
-        phoneNumber: userInfo.phoneNumber,
-      });
-      if (error) {
-        return c.json({ error }, MatchHTTPCode(error.code));
-      }
-      user = data;
-      // console.log("existing user", user);
-      if (!user) {
-        const { data, error } = await userService.create(userInfo);
+      let userId: number;
+      let petId: number;
+
+      if ("id" in userInfo) {
+        userId = userInfo.id;
+      } else {
+        let user: SelectUserData | undefined;
+        const { data, error } = await userService.get({
+          email: userInfo.email,
+          phoneNumber: userInfo.phoneNumber,
+        });
         if (error) {
           return c.json({ error }, MatchHTTPCode(error.code));
         }
         user = data;
-      }
-      let pet: SelectPet | undefined;
-      // let { data: pet, error: getError } =
-      //   (await petService.get({ userId: user.id, name: petInfo.name })) ??
-      //   (await petService.add({ ...petInfo, owner: user.id }));
-      const existingPetResult = await petService.get({
-        userId: user.id,
-        name: petInfo.name,
-      });
-      if (existingPetResult.error || !existingPetResult.data) {
-        const { error } = existingPetResult;
-        if (error) {
-          return c.json({ error }, MatchHTTPCode(error.code));
+        // console.log("existing user", user);
+        if (!user) {
+          const { data, error } = await userService.create(userInfo);
+          if (error) {
+            return c.json({ error }, MatchHTTPCode(error.code));
+          }
+          user = data;
         }
-        const { data: newPet, error: newPetError } = await petService.add({
-          ...petInfo,
-          owner: user.id,
-        });
-        if (newPetError) {
-          return c.json({ newPetError }, MatchHTTPCode(newPetError.code));
-        }
-        pet = newPet
-      } else {
-        pet = existingPetResult.data;
+        userId = user.id;
       }
-      console.log(pet, petInfo);
 
+      if ("id" in petInfo) {
+        petId = petInfo.id;
+      } else {
+        let pet: PetInfo | SelectPet | undefined;
+
+        const existingPetResult = await petService.get({
+          userId: userId,
+          name: petInfo.name,
+        });
+        if (existingPetResult.error || !existingPetResult.data) {
+          const { error } = existingPetResult;
+          if (error) {
+            return c.json({ error }, MatchHTTPCode(error.code));
+          }
+          const { data: newPet, error: newPetError } = await petService.create({
+            ...petInfo,
+            ownerId: userId,
+          });
+          if (newPetError) {
+            return c.json({ newPetError }, MatchHTTPCode(newPetError.code));
+          }
+          pet = newPet;
+        } else {
+          pet = existingPetResult.data;
+        }
+        console.log(pet, petInfo);
+        petId = pet.id;
+      }
       const { data: result, error: createReservationError } =
         await reservationService.create({
-          petId: pet!.id,
-          userId: user.id,
+          petId: petId,
+          userId: userId,
           date: reservationInfo.date,
           timeFrom: reservationInfo.time.from,
           timeTo: reservationInfo.time.to,
         });
       if (createReservationError) {
-        return c.json({ error }, MatchHTTPCode(createReservationError.code));
+        return c.json(
+          { error: createReservationError },
+          MatchHTTPCode(createReservationError.code),
+        );
       }
+
+      reservationService.getById(result.id).then(({ data: res, error }) => {
+        if (!error)
+          notificationService
+            .sendReservationEmail(res)
+            .then(({ data, error }) => {
+              if (error || !data) console.error("Could not send mail:", error);
+              else console.log("Mail sent");
+            })
+            .catch((err) => {
+              console.error("Could not send mail:", err);
+            });
+      });
 
       return c.json({ data: result });
     } catch (err) {
@@ -94,7 +124,6 @@ reservation.post(
 reservation.get("/slots", async (c) => {
   const { reservationService } = c.var;
   const date = new Date(c.req.query("date") ?? new Date().toISOString());
-  console.log("date", date);
   const { data: slots } = await reservationService.generateTimeSlots({ date });
   // console.log(slots);
 
@@ -105,9 +134,6 @@ const QueryParamsSchema = z.object({
   userId: z.number({ coerce: true }).optional(),
   petId: z.number({ coerce: true }).optional(),
   date: ReservationDateSchema.optional(),
-  // status: z
-  //   .enum(["rescheduled", "canceled", "oncoming", "done", "late"])
-  //   .optional(),
   status: z
     .string()
     .transform((value) => value.split(","))
@@ -151,10 +177,49 @@ reservation.get("/:id", async (c) => {
     return c.json({ error: err }, 500);
   }
 });
+reservation.delete("/:id", async (c) => {
+  const id = c.req.param("id");
+  let ID = -1;
+  // const { success: validParam, data: ID } = z.number().safeParse(id);
+  try {
+    ID = Number(id);
+  } catch (err) {}
+  if (ID < 0) {
+    const err = new ManagedError(
+      `Invalid parameter : ${id}`,
+      ErrorCodes.VALIDATION_ERROR,
+    );
+    return c.json({ error: err }, MatchHTTPCode(err.code));
+  }
+  const { reservationService } = c.var;
+  try {
+    const { data: reservation, error } = await reservationService.delete(ID);
+    if (error) {
+      return c.json({ error }, MatchHTTPCode(error.code));
+    }
+    return c.json({ data: reservation });
+  } catch (err) {
+    return c.json({ error: err }, 500);
+  }
+});
+reservation.get("/check/:number", async (c) => {
+  const reservationNumber = c.req.param("number");
+  const { reservationService } = c.var;
+
+  try {
+    const { data: reservation, error } =
+      await reservationService.getByNumber(reservationNumber);
+    if (error) {
+      return c.json({ error }, MatchHTTPCode(error.code));
+    }
+    return c.json({ data: reservation });
+  } catch (err) {
+    return c.json({ error: err }, 500);
+  }
+});
 
 reservation.patch(
   "/:id",
-  zValidator("param", z.number()),
   zValidator(
     "json",
     z
@@ -175,7 +240,28 @@ reservation.patch(
       // const options = {
       //   date: body.date,
       // };
-      const reservationId = c.req.valid("param");
+      let status = body.status;
+
+      if (body.date) {
+        if (toDate(body.date).getTime() < Date.now()) {
+          status = "late";
+        } else if (!body.status) {
+          status = "oncoming";
+        }
+      }
+      const reservationId = Number.parseInt(c.req.param("id"));
+      // Check if already done
+      const { data: reservation } =
+        await reservationService.getById(reservationId);
+      if (reservation?.reservation.status== "done") {
+        return c.json(
+          {
+            error: "Already completed reservation can't be modifed",
+            code: ErrorCodes.INVALID_OPERATION,
+          },
+          MatchHTTPCode(ErrorCodes.INVALID_OPERATION),
+        );
+      }
       const { data, error } = await reservationService.update(reservationId, {
         date: body.date,
         status: body.status,
@@ -191,7 +277,7 @@ reservation.patch(
         ErrorCodes.VALIDATION_ERROR,
       );
       // if (err instanceof ZodError) {
-      c.json({ error: err }, MatchHTTPCode(err.code));
+      return c.json({ error: err }, MatchHTTPCode(err.code));
       // }
     }
   },

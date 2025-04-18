@@ -7,10 +7,12 @@ export const StaffTable = table("staff", {
   id: integer().primaryKey({
     autoIncrement: true,
   }),
-  department: text({ enum: ["admin", "veterinary", "reception"] }).notNull(),
+  role: text({ enum: ["admin", "veterinary", "receptionist"] }).notNull(),
   userId: integer().references(() => UserTable.id).notNull(),
   createdAt: integer({ mode: "timestamp" }).$defaultFn(() => new Date()).notNull(),
 });
 
 export type CreateStaff = typeof StaffTable.$inferInsert;
 export type SelectStaff = typeof StaffTable.$inferSelect;
+
+export type Roles = CreateStaff["role"]

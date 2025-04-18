@@ -1,0 +1,1 @@
+ALTER TABLE `staff` RENAME COLUMN "department" TO "role";

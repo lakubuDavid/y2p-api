@@ -5,6 +5,7 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { Ok } from "../../lib/error";
 import { authenticatedOnly } from "../middlewares/authentication";
+import { UpdatePetSchema } from "@/models/pet";
 
 const pets = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -32,9 +33,9 @@ pets.post("/", zValidator("json", petSchema), async (c) => {
   const { name } = c.req.valid("json");
 
   try {
-    const pet = await petService.add({
+    const pet = await petService.create({
       name,
-      owner: payload.userId,
+      ownerId: payload.userId,
     });
 
     return c.json(
@@ -99,7 +100,7 @@ pets.get("/:id", async (c) => {
 });
 
 // Update pet
-pets.patch("/:id", zValidator("json", updatePetSchema), async (c) => {
+pets.patch("/:id", zValidator("json", UpdatePetSchema), async (c) => {
   const { petService } = c.var;
   const payload = c.get("jwtPayload");
   const id = parseInt(c.req.param("id"));
@@ -110,7 +111,7 @@ pets.patch("/:id", zValidator("json", updatePetSchema), async (c) => {
   }
 
   try {
-    const pet = await petService.update(id, payload.userId, updates);
+    const pet = await petService.update(id,  updates);
     return c.json({ status: "ok", pet });
   } catch (error) {
     if (error instanceof Error && error.message.includes("not found")) {
@@ -138,7 +139,7 @@ pets.delete("/:id", async (c) => {
   }
 
   try {
-    await petService.delete(id, payload.userId);
+    await petService.delete(id );
     return c.json({
       status: "ok",
       message: "Pet deleted successfully",

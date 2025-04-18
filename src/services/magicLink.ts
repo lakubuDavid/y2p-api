@@ -92,51 +92,6 @@ export class MagicLinkService extends BaseService {
   }
 
   /**
-   * Send a magic link email using Resend
-   */
-  public async sendMagicLinkEmail(
-    magicLink: SelectMagicLink,
-    user: SelectUser,
-  ): Promise<Result<boolean>> {
-    try {
-      const magicLinkUrl = `${this.appUrl}/auth/verify?token=${magicLink.token}`;
-
-      // await this.resend.emails.send({
-      //   from: "no-reply@lakubudavid.me",
-      //   to: user.email,
-      //   subject: "Your Login Link",
-      //   html: `
-      //     <h2>Welcome to our app</h2>
-      //     <p>Hello ${user.name},</p>
-      //     <p>Click the link below to sign in to your account:</p>
-      //     <a href="${magicLinkUrl}" style="display: inline-block; padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px;">Sign In</a>
-      //     <p>This link will expire in 24 hours.</p>
-      //     <p>If you didn't request this link, you can safely ignore this email.</p>
-      //   `,
-      // });
-
-      await this.resend.emails.send({
-        from: "no-reply@lakubudavid.me",
-        to: user.email,
-        subject: "Your Login Link",
-        html: MagicLinkEmail({
-          magicLink,
-          appUrl: this.appUrl,
-          userName: user.name,
-        }).toString(),
-      });
-      return Ok(true);
-    } catch (error) {
-      return Fail(
-        `Failed to send magic link email: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-        ErrorCodes.EMAIL_SENDING_FAILED,
-      );
-    }
-  }
-
-  /**
    * Verify a magic link token
    */
   public async verifyMagicLink(token: string): Promise<Result<SelectUserData>> {

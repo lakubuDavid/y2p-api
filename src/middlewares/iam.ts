@@ -1,6 +1,6 @@
 import { Context, Next } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { Department } from "../services/staff";
+import { Roles } from "@/models/staff";
 
 // Define permissions for each department
 export const DepartmentPermissions = {
@@ -19,7 +19,7 @@ export const DepartmentPermissions = {
     "manage:appointments",
     "view:appointments",
   ],
-  reception: [
+  receptionist: [
     "view:staff",
     "view:pets",
     "manage:appointments",
@@ -27,7 +27,7 @@ export const DepartmentPermissions = {
   ],
 } as const;
 
-export type Permission = (typeof DepartmentPermissions)[Department][number];
+export type Permission = (typeof DepartmentPermissions)[Roles][number];
 
 // Create middleware factory for permission-based authorization
 export const requirePermission = (requiredPermission: Permission) => {
@@ -35,7 +35,7 @@ export const requirePermission = (requiredPermission: Permission) => {
     const { staffService } = c.var;
     const payload = c.get("jwtPayload");
 
-    const staff = await staffService.getStaffMember(payload.userId);
+    const {data:staff}= await staffService.getByUserId(payload.userId);
     if (!staff) {
       throw new HTTPException(403, {
         message: "Access denied: Not a staff member",
@@ -43,7 +43,7 @@ export const requirePermission = (requiredPermission: Permission) => {
     }
     const departmentPermissions =
       DepartmentPermissions[
-        staff.department as keyof typeof DepartmentPermissions
+        staff.role as keyof typeof DepartmentPermissions
       ]; // Type-safe access
 
     // const departmentPermissions = DepartmentPermissions[staff.department];
@@ -64,7 +64,7 @@ export const requirePermission = (requiredPermission: Permission) => {
 };
 
 // Create middleware factory for department-based authorization
-export const requireDepartment = (departments: Department[]) => {
+export const requireDepartment = (departments: Roles[]) => {
   return async (c: Context, next: Next) => {
     const { staffService } = c.var;
     const payload = c.get("jwtPayload");

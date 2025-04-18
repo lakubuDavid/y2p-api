@@ -5,14 +5,28 @@ import { Context } from "hono";
 import type { JwtVariables } from "hono/jwt";
 import { z } from "zod";
 
+const envSchema = z.object({});
+
 export type Bindings = {
+  EMAIL_SENDER: string;
   TURSO_DB_URL: string;
   TURSO_TOKEN: string;
   JWT_SECRET: string;
   URL: string;
   CLIENT_URL: string;
   RESEND_TOKEN: string;
+
+  ENVIRONMENT: "development" | "production" | "test";
 };
+declare global {
+  namespace NodeJS {
+    interface ProcessEnv extends Bindings {
+      NODE_ENV: "development" | "production";
+      PORT?: string;
+      PWD: string;
+    }
+  }
+}
 export type Variables = {
   dbClient: libsql.Client;
   db: LibSQLDatabase;
@@ -125,11 +139,11 @@ export const TimeSchema = z.object({
 });
 export type TimeType = z.infer<typeof TimeSchema>;
 
-export const CreateReservationSchema = z.object({
+export const ReservationInfoSchema = z.object({
   date: ReservationDateSchema,
   time: TimeSchema,
 });
-export type CreateReservationType = z.infer<typeof CreateReservationSchema>;
+export type CreateReservationType = z.infer<typeof ReservationInfoSchema>;
 /**
  * Converts reservation.date + reservation.time.to into a JS Date.
  * @param reservation ReservationType
@@ -169,15 +183,15 @@ export function dateFromReservation(
 
   return result;
 }
-export const reservationDateFromDate  = (date: Date) : ReservationDate => {
+export const toReservationDate = (date: Date): ReservationDate => {
   let _date = {
     day: date.getUTCDate() as ValidDay,
     month: date.getUTCMonth() as ValidMonth,
     year: date.getUTCFullYear(),
   };
-  return _date
+  return _date;
 };
-export function dateFromReservationDate(date: ReservationDate): Date {
+export function toDate(date: ReservationDate): Date {
   // console.log(date,hours,minutes)
   const result = new Date(date.day, date.month - 1, date.year);
   result.setUTCHours(0, 0, 0);
@@ -185,10 +199,13 @@ export function dateFromReservationDate(date: ReservationDate): Date {
 
   return result;
 }
+
+export const IdSchema = z.object({ id: z.number() });
+
 export const CreateReservationParams = z.object({
-  userInfo: UserInfoSchema,
-  reservationInfo: CreateReservationSchema,
-  petInfo: PetInfoSchema,
+  userInfo: z.union([IdSchema, UserInfoSchema]),
+  reservationInfo: ReservationInfoSchema,
+  petInfo: z.union([IdSchema, PetInfoSchema]),
 });
 
 export type TimePeriod = "AM" | "PM" | "";
@@ -198,16 +215,29 @@ export type TimeSlot = {
   from: TimeString;
   to: TimeString;
 };
-export const CreateUserSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  surname: z.string().min(1, "Surname is required"),
-  email: z.string().email("Invalid email address"),
-  phoneNumber: z
-    .string()
-    .min(7, "Phone number is too short")
-    .optional()
-    .or(z.literal("")),
-});
+export const AdminCreateUserSchema = z
+  .object({
+    name: z.string().min(1, "Name is required"),
+    surname: z.string().min(1, "Surname is required"),
+    email: z.string().email("Invalid email address"),
+    phoneNumber: z
+      .string()
+      .min(7, "Phone number is too short")
+      .optional()
+      .or(z.literal("")),
+    type: z.enum(["client", "staff"]),
+    role: z.enum(["receptionist", "admin", "veterinary"]).optional(),
+  })
+  .refine((data) => {
+    if (data.type == "staff") {
+      if (!data.role) {
+        return {
+          message: "Staff member role missing",
+          path: ["role"],
+        };
+      }
+    }
+  });
 
 export interface MagicLinkData {
   userId: number;

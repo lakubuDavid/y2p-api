@@ -12,7 +12,7 @@ export interface Failure<E> {
   rawError?: Error
 }
 export type Result<T, E = ManagedError> = Success<T> | Failure<E>;
-
+export type AsyncResult<T, E = ManagedError> = Promise<Result<T,E>>;
 export const Ok = <T,>(data: T): Result<T> => {
   return { data };
 };
@@ -47,6 +47,7 @@ export enum ErrorCodes {
   UNKNOWN = "unknown",
   VALIDATION_ERROR = "validation_error",
   INVALID_ARGUMENT = "invalid_argument",
+  INVALID_OPERATION = "invalid_operation",
   RECORD_ALREADY_EXISTS = "record_already_exists",
   USER_ALREADY_EXISTS = "user_already_exists",
   MISSING_AUTORIZATION = "missing_autorization",
@@ -57,6 +58,7 @@ export enum ErrorCodes {
   USER_NOT_FOUND = "user_not_found",
   SERVER_MISCONFIGURATION = "server_misconfiguration",
   DATABASE_ERROR = "database_error",
+  AUTHENTICATION_FAILED = "authentication_failed",
 }
 
 export const MatchHTTPCode = (code: ErrorCodes) => {
@@ -75,8 +77,10 @@ export const MatchHTTPCode = (code: ErrorCodes) => {
     case ErrorCodes.USER_ALREADY_EXISTS:
       return 409; // Conflict
     case ErrorCodes.MISSING_AUTORIZATION:
+    case ErrorCodes.AUTHENTICATION_FAILED:
       return 401; // Unauthorized
     case ErrorCodes.NOT_AUTHENTICATED:
+    case ErrorCodes.INVALID_OPERATION:
       return 403; // Forbidden
     case ErrorCodes.EMAIL_SENDING_FAILED:
     case ErrorCodes.DATABASE_ERROR:

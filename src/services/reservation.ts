@@ -7,19 +7,19 @@ import {
   SelectReservation,
   ReservationStatus,
 } from "../db/schemas/reservation";
-import { PetTable } from "../db/schemas/pet";
+import { PetTable, SelectPet } from "../db/schemas/pet";
 import { BaseService } from "./service";
-import { UserTable } from "../db/schemas/user";
-import { ErrorCodes, Fail, MatchErrorCode, Ok, Result } from "../../lib/error";
+import { SelectUser, UserTable } from "../db/schemas/user";
+import { AsyncResult, ErrorCodes, Fail, MatchErrorCode, Ok, Result } from "../../lib/error";
 
 import { normalizeDate, normalizedDate } from "../../lib/utils";
 import { LibsqlError } from "@libsql/client";
 import {
   dateFromReservation,
-  dateFromReservationDate,
+  toDate,
   dateFromReservationFrom,
   ReservationDate,
-  reservationDateFromDate,
+  toReservationDate,
 } from "@/types";
 import { DateTime } from "luxon";
 
@@ -47,9 +47,74 @@ export interface QueryReservationFilter {
 //   status? : `${ReservationStatus}`
 // }
 
+export interface ReservationRecord {
+  pet: Omit<SelectPet, "owner" | "createdAt">;
+  user: Omit<SelectUser, "passwordHash" | "salt" | "createdAt">;
+  reservation: Omit<
+    SelectReservation,
+    "timeFrom" | "timeTo" | "userId" | "petId"
+  > & {
+    time: TimeSlot;
+  };
+}
+
+const ReservationHistoryJoinColumns = {
+  owner: {
+    id: UserTable.id,
+    name: UserTable.name,
+    surname: UserTable.surname,
+    email: UserTable.email,
+    phoneNumber: UserTable.phoneNumber,
+  },
+  date: ReservationTable.date,
+  time: {
+    from: ReservationTable.timeFrom,
+    to: ReservationTable.timeTo,
+  },
+  status: ReservationTable.status,
+  createdAt: ReservationTable.createdAt,
+  reservationId: ReservationTable.id,
+  reservationNumber: ReservationTable.reservationNumber,
+};
+
+export const ReservationJoinColumns = {
+  pet: {
+    id: PetTable.id,
+    name: PetTable.name,
+    specie: PetTable.specie,
+    ownerId: PetTable.ownerId,
+    createdAt: PetTable.createdAt,
+    metadata: PetTable.metadata,
+  },
+  user: {
+    id: UserTable.id,
+    name: UserTable.name,
+    surname: UserTable.surname,
+    email: UserTable.email,
+    phoneNumber: UserTable.phoneNumber,
+    type: UserTable.type,
+    verified: UserTable.verified,
+  },
+  reservation: {
+    date: ReservationTable.date,
+    timeFrom: ReservationTable.timeFrom,
+    timeTo: ReservationTable.timeTo,
+    status: ReservationTable.status,
+    createdAt: ReservationTable.createdAt,
+    id: ReservationTable.id,
+    reservationNumber: ReservationTable.reservationNumber,
+  },
+};
 export class ReservationService extends BaseService {
   constructor(db: LibSQLDatabase, jwtSecret: string) {
     super(db, jwtSecret);
+  }
+  public static generateRerservationNumber() {
+    // Generate a unique reservation number (e.g., VET-YYYY-MMDD-XXXX)
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const reservationNumber = `VET-${dateStr}-${randomStr}`;
+    return reservationNumber;
   }
   public async cancel(id: number): Promise<Result<SelectReservation>> {
     try {
@@ -77,6 +142,8 @@ export class ReservationService extends BaseService {
         .delete(ReservationTable)
         .where(eq(ReservationTable.id, id))
         .returning();
+      if (!reservation)
+        return Fail("Reservation not found!", ErrorCodes.NOT_FOUND);
       return Ok(reservation);
     } catch (error) {
       return Fail(
@@ -112,12 +179,29 @@ export class ReservationService extends BaseService {
       );
     }
   }
-  public async getById(id: number): Promise<Result<SelectReservation>> {
+  public async getById(id: number): AsyncResult<ReservationRecord> {
     try {
-      const [reservation] = await this.db
-        .select()
+      const [result] = await this.db
+        .select(ReservationJoinColumns)
         .from(ReservationTable)
+        .innerJoin(PetTable, eq(ReservationTable.petId, PetTable.id))
+        .innerJoin(UserTable, eq(ReservationTable.userId, UserTable.id))
         .where(eq(ReservationTable.id, id));
+      if (!result)
+        return Fail("Rservation not found", ErrorCodes.NOT_FOUND);
+
+      const reservation = {
+        ...result,
+        reservation: {
+          ...result.reservation,
+          time: {
+            from: result.reservation.timeFrom,
+            to: result.reservation.timeTo,
+          },
+          timeFrom: undefined,
+          timeTo: undefined,
+        },
+      };
 
       return Ok(reservation);
     } catch (err) {
@@ -128,6 +212,56 @@ export class ReservationService extends BaseService {
       );
     }
   }
+
+  // In /apps/api/src/services/reservation.ts
+  public async getByNumber(
+    reservationNumber: string,
+  ): Promise<Result<ReservationRecord>> {
+    try {
+      const result = await this.db
+        .select(ReservationJoinColumns)
+        .from(ReservationTable)
+        .innerJoin(PetTable, eq(ReservationTable.petId, PetTable.id))
+        .innerJoin(UserTable, eq(ReservationTable.userId, UserTable.id))
+        .where(eq(ReservationTable.reservationNumber, reservationNumber))
+        .get();
+
+      if (!result) {
+        return Fail("Reservation not found", ErrorCodes.NOT_FOUND);
+      }
+
+      const reservation = {
+        ...result,
+        reservation: {
+          ...result.reservation,
+          time: {
+            from: result.reservation.timeFrom,
+            to: result.reservation.timeTo,
+          },
+          timeFrom: undefined,
+          timeTo: undefined,
+        },
+      };
+
+      if (!reservation) {
+        return Fail(
+          `Reservation with number ${reservationNumber} not found`,
+          ErrorCodes.NOT_FOUND,
+        );
+      }
+
+      return Ok(reservation);
+    } catch (error) {
+      return Fail(
+        `Failed to fetch reservation: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+        MatchErrorCode(error as Error),
+        error as Error,
+      );
+    }
+  }
+
   // export interface QueryReservationFilter {
   //   status?: string;
   //   userId?: number;
@@ -135,34 +269,16 @@ export class ReservationService extends BaseService {
   //   date?: Date;
   // }
 
-  public async all(filter?: QueryReservationFilter): Promise<Result<any[]>> {
+  public async all(
+    filter?: QueryReservationFilter,
+  ): Promise<Result<ReservationRecord[]>> {
     try {
-      console.log(filter?.status);
       const reservations = await this.db.transaction(async (tx) => {
         let query = tx
-          .select({
-            pet: {
-              id: PetTable.id,
-              name: PetTable.name,
-              specie: PetTable.specie,
-            },
-            user: {
-              id: UserTable.id,
-              name: UserTable.name,
-              surname: UserTable.surname,
-              email: UserTable.email,
-              phoneNumber: UserTable.phoneNumber,
-            },
-            reservation: {
-              date: ReservationTable.date,
-              status: ReservationTable.status,
-              createdAt: ReservationTable.createdAt,
-              id: ReservationTable.id,
-            },
-          })
+          .select(ReservationJoinColumns)
           .from(ReservationTable)
-          .leftJoin(PetTable, eq(ReservationTable.petId, PetTable.id))
-          .leftJoin(UserTable, eq(ReservationTable.userId, UserTable.id));
+          .innerJoin(PetTable, eq(ReservationTable.petId, PetTable.id))
+          .innerJoin(UserTable, eq(ReservationTable.userId, UserTable.id));
         // Apply filters dynamically
         let dynamicQuery = query.$dynamic();
         if (filter) {
@@ -183,8 +299,21 @@ export class ReservationService extends BaseService {
               eq(ReservationTable.date, filter.date),
             );
         }
-        const allReservations = await dynamicQuery.execute();
-
+        let _allReservations = await dynamicQuery.execute();
+        const allReservations = _allReservations.map((res) => {
+          return {
+            ...res,
+            reservation: {
+              ...res.reservation,
+              time: {
+                from: res.reservation.timeFrom,
+                to: res.reservation.timeTo,
+              },
+              timeFrom: undefined,
+              timeTo: undefined,
+            },
+          };
+        });
         // Detect stale reservations
         const now = new Date();
         const staleReservations = allReservations.filter(
@@ -207,7 +336,10 @@ export class ReservationService extends BaseService {
             staleIds.includes(reservation.reservation.id)
               ? {
                   ...reservation,
-                  reservation: { ...reservation.reservation, status: "late" },
+                  reservation: {
+                    ...reservation.reservation,
+                    status: "late" as ReservationStatus,
+                  },
                 }
               : reservation,
           );
@@ -229,7 +361,10 @@ export class ReservationService extends BaseService {
   }
 
   public async create(
-    data: Omit<CreateReservation, "id" | "createdAt" | "status">,
+    data: Omit<
+      CreateReservation,
+      "id" | "createdAt" | "status" | "reservationNumber"
+    >,
   ): Promise<Result<SelectReservation>> {
     try {
       const pet = await this.db
@@ -241,23 +376,9 @@ export class ReservationService extends BaseService {
       if (!pet) {
         return Fail(
           `Pet with ID ${data.petId} not found`,
-          ErrorCodes.VALIDATION_ERROR,
+          ErrorCodes.NOT_FOUND,
         );
       }
-      // console.log("date", data.date);
-      // const _normalizedDate = normalizedDate(data.date);
-      // console.log("normalized date", _normalizedDate);
-      // console.log("normalized utc date", normalizedDate(data.date));
-      // console.log("date", data.date);
-
-      // // Normalize the date to 00:00:00 for comparison
-      // const dateStart = new Date(data.date);
-      // dateStart.setUTCHours(0, 0, 0, 0);
-      // console.log("start", dateStart);
-
-      // const dateEnd = new Date(data.date);
-      // dateEnd.setUTCHours(23, 59, 59, 999);
-      // console.log("end", dateEnd);
 
       // Fetch all reservations for the same day
       const reservations = await this.db
@@ -265,8 +386,6 @@ export class ReservationService extends BaseService {
         .from(ReservationTable)
         .where(eq(ReservationTable.date, data.date))
         .all();
-
-      console.log("todays reservations", reservations);
 
       const [fromHours, fromMinutes] = data.timeFrom.split(":").map(Number);
       let newFrom = DateTime.utc().set({
@@ -298,46 +417,19 @@ export class ReservationService extends BaseService {
         return Fail(
           `Time slot ${data.timeFrom} - ${
             data.timeTo
-          } is already reserved for ${dateFromReservationDate(
-            data.date,
-          ).toLocaleDateString()}`,
+          } is already reserved for ${toDate(data.date).toLocaleDateString()}`,
           ErrorCodes.RECORD_ALREADY_EXISTS,
         );
       }
-      // const existingReservation = await this.db
-      //   .select()
-      //   .from(ReservationTable)
-      //   .where(
-      //     and(
-      //       eq(ReservationTable.date, normalizedDate),
-      //       or(
-      //         and(
-      //           gte(ReservationTable.timeFrom, data.timeFrom),
-      //           lt(ReservationTable.timeFrom, data.timeTo),
-      //         ),
-      //         and(
-      //           gte(ReservationTable.timeTo, data.timeFrom),
-      //           lt(ReservationTable.timeTo, data.timeTo),
-      //         ),
-      //       ),
-      //     ),
-      //   )
-      //   .get();
+      // Generate a unique reservation number (e.g., VET-YYYY-MMDD-XXXX)
 
-      // if (existingReservation) {
-      //   console.log("Existing res", existingReservation);
-      //   return Fail(
-      //     `Time slot already reserved for ${new Date(
-      //       data.date,
-      //     ).toLocaleDateString()} , ${data.timeFrom} - ${data.timeTo}`,
-      //     ErrorCodes.RECORD_ALREADY_EXISTS,
-      //   );
-      // }
+      const reservationNumber = ReservationService.generateRerservationNumber();
 
       const [reservation] = await this.db
         .insert(ReservationTable)
         .values({
           ...data,
+          reservationNumber,
           status: "oncoming",
         })
         .returning();
@@ -372,7 +464,7 @@ export class ReservationService extends BaseService {
             timeTo: ReservationTable.timeTo,
           })
           .from(ReservationTable)
-          .where(eq(ReservationTable.date, reservationDateFromDate(date)))
+          .where(eq(ReservationTable.date, toReservationDate(date)))
           .all();
 
         reservedSlots = reservations.map((reservation) => ({
@@ -380,8 +472,6 @@ export class ReservationService extends BaseService {
           to: reservation.timeTo,
         }));
       }
-
-      console.log("reserved slots", reservedSlots);
 
       const freeSlots: TimeSlot[] = [];
 
@@ -423,7 +513,6 @@ export class ReservationService extends BaseService {
           });
 
           const newSlot: TimeSlot = { from, to };
-          console.log(newSlot);
           // Check for any overlap with reserved slots.
           const hasOverlap = reservedSlots.some((reserved) =>
             overlaps(newSlot, reserved),
@@ -446,6 +535,19 @@ export class ReservationService extends BaseService {
         error as Error,
       );
     }
+  }
+
+  public async getHistoy({ petId }: { petId?: number }) {
+    if (!petId) return Fail("Missing pet id", ErrorCodes.VALIDATION_ERROR);
+    const reservations = await this.db
+      .select(ReservationHistoryJoinColumns)
+      .from(ReservationTable)
+      .innerJoin(PetTable, eq(ReservationTable.petId, PetTable.id))
+      .innerJoin(UserTable, eq(ReservationTable.userId, UserTable.id))
+      .where(eq(PetTable.id, petId))
+      .all();
+
+    return Ok(reservations);
   }
 
   // public async generateTimeSlots({

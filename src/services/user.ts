@@ -22,8 +22,7 @@ export class UserService extends BaseService {
       const [existingUser] = await this.db
         .select()
         .from(UserTable)
-        .where(or(eq(UserTable.email, userInfo.email!)))
-        .limit(1);
+        .where(or(eq(UserTable.email, userInfo.email!)));
       if (
         existingUser &&
         existingUser.email === userInfo.email &&
@@ -65,9 +64,7 @@ export class UserService extends BaseService {
     }
   }
 
-  public async all(): Promise<
-    Result<SelectUserData[]>
-  > {
+  public async all(): Promise<Result<SelectUserData[]>> {
     try {
       const users = await this.db
         .select({
@@ -154,7 +151,9 @@ export class UserService extends BaseService {
         .select()
         .from(UserTable)
         .where(eq(UserTable.id, id));
-
+      if (!user) {
+        return Fail("User not found", ErrorCodes.NOT_FOUND);
+      }
       return Ok(user);
     } catch (error) {
       return Fail(
@@ -175,7 +174,7 @@ export class UserService extends BaseService {
         .select()
         .from(UserTable)
         .where(eq(UserTable.email, email));
-
+      if (!user) return Fail("User not found", ErrorCodes.USER_NOT_FOUND);
       return Ok(user);
     } catch (error) {
       return Fail(
@@ -197,6 +196,9 @@ export class UserService extends BaseService {
         .from(UserTable)
         .where(eq(UserTable.phoneNumber, phoneNumber));
 
+      if (!user) {
+        return Fail("User not found", ErrorCodes.NOT_FOUND);
+      }
       return Ok(user);
     } catch (error) {
       return Fail(
@@ -229,6 +231,9 @@ export class UserService extends BaseService {
         .where(eq(UserTable.id, id))
         .returning();
 
+      if (!updatedUser) {
+        return Fail("User not found", ErrorCodes.NOT_FOUND);
+      }
       return Ok(updatedUser);
     } catch (error) {
       return Fail(
@@ -250,7 +255,7 @@ export class UserService extends BaseService {
         .delete(UserTable)
         .where(eq(UserTable.id, id))
         .returning();
-
+      if (!deletedUser) return Fail("User not found", ErrorCodes.NOT_FOUND);
       return Ok(deletedUser);
     } catch (error) {
       return Fail(

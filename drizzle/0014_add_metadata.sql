@@ -1,0 +1,1 @@
+ALTER TABLE `pet` ADD `metadata` text DEFAULT '{}' NOT NULL;

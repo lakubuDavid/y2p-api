@@ -1,0 +1,2 @@
+ALTER TABLE `pet` RENAME COLUMN "owner" TO "ownerId";--> statement-breakpoint
+ALTER TABLE `pet` ALTER COLUMN "ownerId" TO "ownerId" integer NOT NULL REFERENCES user(id) ON DELETE no action ON UPDATE no action;

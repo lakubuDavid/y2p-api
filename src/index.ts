@@ -14,7 +14,6 @@ import { Bindings, Variables } from "./types";
 import { setupDb } from "./db";
 import { registerServices } from "./services";
 import { logger } from "hono/logger";
-import { getCookie } from "hono/cookie";
 import { config } from "dotenv";
 import { authHeaders } from "./middlewares/authHeaders";
 import reservation from "./routes/reservation";

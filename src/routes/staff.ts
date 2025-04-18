@@ -4,8 +4,10 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { AppContext, Bindings, Variables } from "../types";
 import { requirePermission, requireDepartment } from "../middlewares/iam";
-import { Department } from "../services/staff";
 import { getSignedCookie } from "hono/cookie";
+import { Roles, StaffTable } from "@/models/staff";
+import { createInsertSchema, createUpdateSchema } from "drizzle-zod";
+import { ErrorCodes, Fail } from "@/libs/error";
 
 const staff = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -17,24 +19,17 @@ staff.use("*", (c, next) => {
   return jwtMiddleware(c, next);
 });
 
-const staffSchema = z.object({
-  userId: z.number(),
-  department: z.enum(["admin", "veterinary", "reception"] as const),
-});
-
-const updateStaffSchema = z.object({
-  department: z.enum(["admin", "veterinary", "reception"] as const),
-});
-
+const staffSchema = createInsertSchema(StaffTable)
+const updateStaffSchema = createUpdateSchema(StaffTable)
 // List all staff (admin only)
 staff.get("/", requirePermission("view:staff"), async (c) => {
   const { staffService } = c.var;
-  const department = c.req.query("department") as Department | undefined;
+  const department = c.req.query("role") as Roles | undefined;
 
   // console.log(cookies)
 
   try {
-    const staffMembers = await staffService.getAllStaff(department);
+    const staffMembers = await staffService.getByRole(department);
     return c.json({ status: "ok", staff: staffMembers });
   } catch (error) {
     return c.json(
@@ -57,7 +52,7 @@ staff.post(
     const staffInfo = c.req.valid("json");
 
     try {
-      const newStaff = await staffService.addStaffMember(staffInfo);
+      const newStaff = await staffService.create(staffInfo);
       return c.json(
         {
           status: "ok",
@@ -98,11 +93,11 @@ staff.patch(
     const updates = c.req.valid("json");
 
     if (isNaN(id)) {
-      return c.json({ status: "error", message: "Invalid staff ID" }, 400);
+      return c.json(Fail("Invalid staff ID",ErrorCodes.INVALID_ARGUMENT), 400);
     }
 
     try {
-      const updatedStaff = await staffService.updateStaffMember(id, updates);
+      const updatedStaff = await staffService.update(id, updates);
       return c.json({
         status: "ok",
         staff: updatedStaff,
@@ -138,7 +133,7 @@ staff.delete("/:id", requireDepartment(["admin"]), async (c) => {
   }
 
   try {
-    await staffService.removeStaffMember(id);
+    await staffService.remove(id);
     return c.json({
       status: "ok",
       message: "Staff member removed successfully",

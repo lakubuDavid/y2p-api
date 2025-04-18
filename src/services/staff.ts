@@ -1,26 +1,39 @@
 import { LibSQLDatabase } from "drizzle-orm/libsql";
-import { StaffTable, CreateStaff, SelectStaff } from "../db/schemas/staff";
+import {
+  StaffTable,
+  CreateStaff,
+  SelectStaff,
+  Roles,
+} from "../db/schemas/staff";
 import { UserTable } from "../db/schemas/user";
 import { eq, and } from "drizzle-orm";
 import { BaseService } from "./service";
+import { AsyncResult, ErrorCodes, Fail, Ok, Result } from "@/libs/error";
+import staff from "@/routes/staff";
 
-export type Department = "admin" | "veterinary" | "reception";
-export type StaffWithUser = SelectStaff & {
+export type StaffUser = SelectStaff & {
   user: {
     name: string;
     email: string;
   };
 };
 
-export class StaffService extends BaseService{
-  constructor(
-    db: LibSQLDatabase,
-    jwtSecret: string,
-  ) {
-    super(db,jwtSecret)
+export const StaffTablePublicColumns = {
+  id: StaffTable.id,
+  role: StaffTable.role,
+  userId: StaffTable.userId,
+  createdAt: StaffTable.createdAt,
+  user: {
+    name: UserTable.name,
+    email: UserTable.email,
+  },
+};
+export class StaffService extends BaseService {
+  constructor(db: LibSQLDatabase, jwtSecret: string) {
+    super(db, jwtSecret);
   }
 
-  public async addStaffMember(staffInfo: CreateStaff) {
+  public async create(staffInfo: CreateStaff): AsyncResult<SelectStaff> {
     // Check if user is already a staff member
     const existing = await this.db
       .select()
@@ -28,7 +41,10 @@ export class StaffService extends BaseService{
       .where(eq(StaffTable.userId, staffInfo.userId));
 
     if (existing.length > 0) {
-      throw new Error("User is already a staff member");
+      return Fail(
+        "Staff member already exists",
+        ErrorCodes.RECORD_ALREADY_EXISTS,
+      );
     }
 
     const [result] = await this.db
@@ -36,54 +52,34 @@ export class StaffService extends BaseService{
       .values(staffInfo)
       .returning();
 
-    return result;
+    return Ok(result);
   }
 
-  public async getStaffMember(userId: number) {
+  public async getByUserId(userId: number): AsyncResult<StaffUser> {
     const [result] = await this.db
-      .select({
-        id: StaffTable.id,
-        department: StaffTable.department,
-        userId: StaffTable.userId,
-        createdAt: StaffTable.createdAt,
-        user: {
-          name: UserTable.name,
-          email: UserTable.email,
-        },
-      })
+      .select(StaffTablePublicColumns)
       .from(StaffTable)
       .leftJoin(UserTable, eq(StaffTable.userId, UserTable.id))
       .where(eq(StaffTable.userId, userId));
-
-    return result || null;
+    if (!result) {
+      return Fail("Not found", ErrorCodes.NOT_FOUND);
+    }
+    return Ok(result as StaffUser);
   }
 
-  public async getAllStaff(department?: Department) {
+  public async getByRole(role?: Roles) {
     const query = this.db
-      .select({
-        id: StaffTable.id,
-        department: StaffTable.department,
-        userId: StaffTable.userId,
-        createdAt: StaffTable.createdAt,
-        user: {
-          name: UserTable.name,
-          email: UserTable.email,
-        },
-      })
+      .select(StaffTablePublicColumns)
       .from(StaffTable)
       .leftJoin(UserTable, eq(StaffTable.userId, UserTable.id));
-
-    if (department) {
-      return await query.where(eq(StaffTable.department, department));
+    if (role) {
+      return await query.where(eq(StaffTable.role, role));
     }
 
     return await query;
   }
 
-  public async updateStaffMember(
-    staffId: number,
-    updates: Partial<CreateStaff>,
-  ) {
+  public async update(staffId: number, updates: Partial<CreateStaff>) {
     const [result] = await this.db
       .update(StaffTable)
       .set(updates)
@@ -97,7 +93,7 @@ export class StaffService extends BaseService{
     return result;
   }
 
-  public async removeStaffMember(staffId: number) {
+  public async remove(staffId: number) {
     const [result] = await this.db
       .delete(StaffTable)
       .where(eq(StaffTable.id, staffId))
@@ -110,12 +106,10 @@ export class StaffService extends BaseService{
     return result;
   }
 
-  public async hasPermission(
-    userId: number,
-    requiredDepartments: Department[],
-  ) {
-    const staff = await this.getStaffMember(userId);
+  public async hasPermission(userId: number, requiredRoles: Roles[]) {
+    const { data: staff, error } = await this.getByUserId(userId);
+    if (error) return false;
     if (!staff) return false;
-    return requiredDepartments.includes(staff.department);
+    return requiredRoles.includes(staff.role);
   }
 }

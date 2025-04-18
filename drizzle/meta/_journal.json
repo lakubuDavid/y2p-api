@@ -78,6 +78,34 @@
       "when": 1744123714928,
       "tag": "0010_date_object_for_reservation",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1744400658753,
+      "tag": "0011_staff_table_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1744442458223,
+      "tag": "0012_add_reservation_number",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1744456110832,
+      "tag": "0013_rename_columns_pets",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1744485902202,
+      "tag": "0014_add_metadata",
+      "breakpoints": true
     }
   ]
 }

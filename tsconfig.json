@@ -3,7 +3,7 @@
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "strict": true,
@@ -40,11 +40,16 @@
       ],
       "@/libs/*": [
         "./lib/*"
+      ],
+      "@/*": [
+        "./src/*"
       ]
     },
     "baseUrl": "./"
   },
   "include": [
-    "./src/*.ts"
+    "./src/*.ts",
+    "./lib/*.ts",
+    "./test/*.ts",
   ]
 }

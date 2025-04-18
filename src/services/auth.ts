@@ -112,8 +112,7 @@ export class AuthService extends BaseService {
               eq(TokenTable.refreshToken, token),
               eq(TokenTable.isRevoked, false),
             ),
-          )
-          .limit(1);
+          );
 
         if (!storedToken) {
           throw new Error("Token has been revoked");
@@ -150,8 +149,12 @@ export class AuthService extends BaseService {
 
       return { data: tokens };
     } catch (error) {
-      console.log(error)
-      return Fail("Invalid refresh token", ErrorCodes.INVALID_ARGUMENT,error as Error);
+      console.log(error);
+      return Fail(
+        "Invalid refresh token",
+        ErrorCodes.INVALID_ARGUMENT,
+        error as Error,
+      );
     }
   }
 
@@ -169,21 +172,20 @@ export class AuthService extends BaseService {
       .where(eq(TokenTable.userId, userId));
   }
 
-  public async login(email: string, password: string): Promise<Result<any>> {
+  public async login(email: string, password: string) {
     const [user] = await this.db
       .select()
       .from(UserTable)
-      .where(eq(UserTable.email, email))
-      .limit(1);
+      .where(eq(UserTable.email, email));
 
     if (!user) {
-     return Fail("Username or password invalid",ErrorCodes.INVALID_ARGUMENT);
+      return Fail("Username or password invalid", ErrorCodes.INVALID_ARGUMENT);
     }
 
     const [hashedAttempt] = await this.hashPassword(password, user.salt);
 
     if (hashedAttempt !== user.passwordHash) {
-      return Fail("Username or password invalid",ErrorCodes.INVALID_ARGUMENT);
+      return Fail("Username or password invalid", ErrorCodes.AUTHENTICATION_FAILED);
     }
 
     const tokens = await this.generateTokenPair(user.id, user.email);
@@ -201,13 +203,12 @@ export class AuthService extends BaseService {
   }
 
   public async signUp(email: string, password: string, name: string) {
-    const existingUser = await this.db
+    const [existingUser] = await this.db
       .select()
       .from(UserTable)
-      .where(eq(UserTable.email, email))
-      .limit(1);
+      .where(eq(UserTable.email, email));
 
-    if (existingUser.length > 0) {
+    if (existingUser) {
       throw new Error("Email already registered");
     }
     console.log("no similar email");
