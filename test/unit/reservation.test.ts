@@ -2,12 +2,10 @@
 import { expect, test, describe, beforeEach, mock, afterAll } from "bun:test";
 import { ReservationService } from "../../src/services/reservation";
 import { ErrorCodes } from "../../lib/error";
-import {
-  ReservationStatus,
-  ReservationTable,
-} from "../../src/db/schemas/reservation";
+import { ReservationTable } from "../../src/db/schemas/reservation";
 import { PetTable } from "../../src/db/schemas/pet";
 import { UserTable } from "../../src/db/schemas/user";
+import { ReservationStatus } from "../../src/models/reservation";
 
 describe("ReservationService", () => {
   let reservationService;
@@ -486,10 +484,50 @@ describe("ReservationService", () => {
             ? {
                 where: mock(() => ({
                   all: mock(() => [
-                    { timeFrom: "10:00", timeTo: "10:30" },
-                    { timeFrom: "13:00", timeTo: "13:30" },
+                    {
+                      timeFrom: "10:00",
+                      timeTo: "10:30",
+                      time: { from: "10:00", to: "10:30" },
+                      date:{
+                        day:17,
+                        month:4,
+                        year:2025
+                      }
+                    },
+                    {
+                      timeFrom: "13:00",
+                      timeTo: "13:30",
+                      time: { from: "13:00", to: "13:30" },
+                      date:{
+                        day:17,
+                        month:4,
+                        year:2025
+                      }
+                    },
                   ]),
                 })),
+                all: mock(() => [
+                  {
+                    timeFrom: "10:00",
+                    timeTo: "10:30",
+                    time: { from: "10:00", to: "10:30" },
+                      date:{
+                        day:17,
+                        month:4,
+                        year:2025
+                      }
+                  },
+                  {
+                    timeFrom: "13:00",
+                    timeTo: "13:30",
+                    time: { from: "13:00", to: "13:30" },
+                      date:{
+                        day:17,
+                        month:4,
+                        year:2025
+                      }
+                  },
+                ]),
               }
             : {},
         ),
@@ -519,10 +557,50 @@ describe("ReservationService", () => {
             ? {
                 where: mock(() => ({
                   all: mock(() => [
-                    { timeFrom: "10:00", timeTo: "10:30" },
-                    { timeFrom: "13:00", timeTo: "13:30" },
+                    {
+                      timeFrom: "10:00",
+                      timeTo: "10:30",
+                      time: { from: "10:00", to: "10:30" },
+                      date:{
+                        day:17,
+                        month:4,
+                        year:2025
+                      }
+                    },
+                    {
+                      timeFrom: "13:00",
+                      timeTo: "13:30",
+                      time: { from: "13:00", to: "13:30" },
+                      date:{
+                        day:17,
+                        month:4,
+                        year:2025
+                      }
+                    },
                   ]),
                 })),
+                all: mock(() => [
+                  {
+                    timeFrom: "10:00",
+                    timeTo: "10:30",
+                    time: { from: "10:00", to: "10:30" },
+                      date:{
+                        day:17,
+                        month:4,
+                        year:2025
+                      }
+                  },
+                  {
+                    timeFrom: "13:00",
+                    timeTo: "13:30",
+                    time: { from: "13:00", to: "13:30" },
+                      date:{
+                        day:17,
+                        month:4,
+                        year:2025
+                      }
+                  },
+                ]),
               }
             : {},
         ),

@@ -18,9 +18,11 @@ describe("UserService", () => {
       })),
       select: mock(() => ({
         from: mock(() => ({
-          where: mock(() => [
-            { id: 1, email: "user@example.com", name: "Test User" },
-          ]),
+          innerJoin: mock(() => ({
+            where: mock(() => [
+              { id: 1, email: "user@example.com", name: "Test User" },
+            ]),
+          })),
         })),
       })),
       update: mock(() => ({
@@ -46,9 +48,12 @@ describe("UserService", () => {
 
   test("should create a user successfully", async () => {
     mockDb.select = mock(() => ({
-      from: mock(() => ({
-        where: mock(() => []),
-      })),
+        from: mock(() => ({
+          innerJoin: mock(() => ({
+            where: mock(() => [
+            ]),
+          })),
+        })),
     }));
     mockDb.insert = mock(() => ({
       values: mock(() => ({
@@ -82,9 +87,12 @@ describe("UserService", () => {
   test("should return error if user not found by email", async () => {
     // Change the mock to return empty array
     mockDb.select = mock(() => ({
-      from: mock(() => ({
-        where: mock(() => []),
-      })),
+        from: mock(() => ({
+          innerJoin: mock(() => ({
+            where: mock(() => [
+            ]),
+          })),
+        })),
     }));
 
     const result = await userService.getByEmail("nonexistent@example.com");

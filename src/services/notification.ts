@@ -3,9 +3,10 @@ import { Resend } from "resend";
 import { SelectUser } from "../db/schemas/user";
 import { SelectMagicLink } from "../db/schemas/magicLink";
 import { MagicLinkEmail } from "../views/emails/MagicLink";
-import { ReservationRecord } from "./reservation";
 import { ReservationEmail } from "../views/emails/Reservation";
 import { ErrorCodes, Fail, Ok, Result } from "../../lib/error";
+import * as Sentry from "@sentry/cloudflare";
+import { ReservationRecord } from "../models/reservation";
 
 export class NotificationService {
   private resend: Resend;
@@ -28,7 +29,7 @@ export class NotificationService {
     try {
       const magicLinkUrl = `${this.appUrl}/auth/verify?token=${magicLink.token}`;
 
-      await this.resend.emails.send({
+      const response = await this.resend.emails.send({
         from: this.senderEmail,
         to: user.email,
         subject: "Your Login Link",
@@ -39,6 +40,11 @@ export class NotificationService {
         }).toString(),
       });
 
+      if (response.error) {
+        const err = Fail(`Failed to send the email : ${response.error.message}`);
+        Sentry.captureException(err)
+        return err
+      }
       return Ok(true);
     } catch (error) {
       return Fail(
@@ -77,7 +83,9 @@ export class NotificationService {
         html: content,
       });
       if (response.error) {
-        return Fail(`Failed to send the email : ${response.error.message}`);
+        const err = Fail(`Failed to send the email : ${response.error.message}`);
+        Sentry.captureException(err)
+        return err
       }
       return Ok(true);
     } catch (error) {

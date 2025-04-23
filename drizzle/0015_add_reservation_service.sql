@@ -1,0 +1,1 @@
+ALTER TABLE `reservation` ADD `service` text NOT NULL;

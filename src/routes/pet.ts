@@ -3,7 +3,7 @@ import { jwt } from "hono/jwt";
 import { AppContext, Bindings, Variables } from "../types";
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { Ok } from "../../lib/error";
+import { Failed, Ok } from "../../lib/error";
 import { authenticatedOnly } from "../middlewares/authentication";
 import { UpdatePetSchema } from "@/models/pet";
 
@@ -62,17 +62,21 @@ pets.post("/", zValidator("json", petSchema), async (c) => {
 pets.get("/", async (c) => {
   const { petService } = c.var;
   const payload = c.get("jwtPayload");
-  console.log(payload)
+  console.log(payload);
   try {
     const response = await petService.all();
-    console.log(response)
-    return c.json({data:response.data,error:response.error, status: response.error ? "error" : "ok" });
+    console.log(response);
+    return c.json({
+      data: response.data,
+      error: response.error,
+      status: response.error ? "error" : "ok",
+    });
   } catch (error) {
     return c.json(
       {
         status: "error",
         message: "Failed to fetch pets",
-        error
+        error,
       },
       500,
     );
@@ -89,8 +93,34 @@ pets.get("/:id", async (c) => {
   }
 
   try {
-    const pet = await petService.getById(id);
-    return c.json({ status: "ok", pet });
+    const { data: pet, error } = await petService.getById(id);
+    if (error) {
+      return c.json(Failed(error));
+    }
+    return c.json(Ok(pet));
+  } catch (error) {
+    if (error instanceof Error && error.message === "Pet not found") {
+      return c.json({ status: "error", message: error.message }, 404);
+    }
+    return c.json({ status: "error", message: "Failed to fetch pet" }, 500);
+  }
+});
+
+// Get specific pet
+pets.get("/:id/history", async (c) => {
+  const { petService,reservationService } = c.var;
+  const id = parseInt(c.req.param("id"));
+
+  if (isNaN(id)) {
+    return c.json({ status: "error", message: "Invalid pet ID" }, 400);
+  }
+
+  try {
+    const { data: history, error } = await reservationService.getHistory({petId:id})
+    if (error) {
+      return c.json(Failed(error));
+    }
+    return c.json(Ok(history));
   } catch (error) {
     if (error instanceof Error && error.message === "Pet not found") {
       return c.json({ status: "error", message: error.message }, 404);
@@ -111,7 +141,7 @@ pets.patch("/:id", zValidator("json", UpdatePetSchema), async (c) => {
   }
 
   try {
-    const pet = await petService.update(id,  updates);
+    const pet = await petService.update(id, updates);
     return c.json({ status: "ok", pet });
   } catch (error) {
     if (error instanceof Error && error.message.includes("not found")) {
@@ -139,7 +169,7 @@ pets.delete("/:id", async (c) => {
   }
 
   try {
-    await petService.delete(id );
+    await petService.delete(id);
     return c.json({
       status: "ok",
       message: "Pet deleted successfully",

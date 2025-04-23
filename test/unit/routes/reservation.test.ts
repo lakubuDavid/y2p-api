@@ -30,6 +30,7 @@ describe("Reservation Routes", () => {
   let mockReservationService: any;
   let mockPetService: any;
   let mockUserService: any;
+  let mockNotificationService: any;
 
   beforeEach(() => {
     // Create mock services
@@ -43,21 +44,45 @@ describe("Reservation Routes", () => {
       ),
       all: mock(() =>
         Ok([
-          { id: 1, reservationNumber: "VET-20250417-123", status: "oncoming" },
+          {
+            reservation: {
+              id: 1,
+              reservationNumber: "VET-20250417-123",
+              status: "oncoming",
+              time: {
+                from: "8:00",
+                to: "8:30",
+              },
+            },
+          },
         ]),
       ),
       getById: mock(() =>
-        Ok({
-          id: 1,
-          reservationNumber: "VET-20250417-123",
-          status: "oncoming",
-        }),
+        Promise.resolve(
+          Ok({
+            reservation: {
+              id: 1,
+              reservationNumber: "VET-20250417-123",
+              status: "oncoming",
+              time: {
+                from: "8:00",
+                to: "8:30",
+              },
+            },
+          }),
+        ),
       ),
       getByNumber: mock(() =>
         Ok({
-          id: 1,
-          reservationNumber: "VET-20250417-123",
-          status: "oncoming",
+          reservation: {
+            id: 1,
+            reservationNumber: "VET-20250417-123",
+            status: "oncoming",
+            time: {
+              from: "8:00",
+              to: "8:30",
+            },
+          },
         }),
       ),
       update: mock(() =>
@@ -91,6 +116,9 @@ describe("Reservation Routes", () => {
         Ok({ id: 1, email: "user@example.com", name: "Test User" }),
       ),
     };
+    mockNotificationService = {
+      sendReservationEmail: mock(() => Promise.resolve(true)),
+    };
 
     // Create app instance with mock services
     app = new Hono();
@@ -99,6 +127,7 @@ describe("Reservation Routes", () => {
       c.set("reservationService", mockReservationService);
       c.set("petService", mockPetService);
       c.set("userService", mockUserService);
+      c.set("notificationService", mockNotificationService);
       return next();
     });
 
@@ -178,12 +207,13 @@ describe("Reservation Routes", () => {
     };
 
     const inServiceData = {
-      date:requestBody.reservationInfo.date,
-      petId:requestBody.petInfo.id,
-      userId:requestBody.userInfo.id,
-      timeFrom:requestBody.reservationInfo.time.from,
-      timeTo:requestBody.reservationInfo.time.to,
-    }
+      date: requestBody.reservationInfo.date,
+      petId: requestBody.petInfo.id,
+      userId: requestBody.userInfo.id,
+      timeFrom: requestBody.reservationInfo.time.from,
+      timeTo: requestBody.reservationInfo.time.to,
+      service: "grooming",
+    };
 
     const req = new Request("http://localhost/reservation", {
       method: "POST",
@@ -198,7 +228,9 @@ describe("Reservation Routes", () => {
     expect(res.status).toBe(200);
 
     expect(mockReservationService.create).toHaveBeenCalledTimes(1);
-    expect(mockReservationService.create.mock.calls[0][0]).toEqual(inServiceData);
+    expect(mockReservationService.create.mock.calls[0][0]).toEqual(
+      inServiceData,
+    );
 
     expect(result.data).toBeDefined();
     expect(result.data.reservationNumber).toBeDefined();
@@ -305,11 +337,11 @@ describe("Reservation Routes", () => {
     });
 
     const res = await app.fetch(req);
-    expect(res.status).toBe(200);
 
     const result = await res.json();
 
-    // console.log(result);
+    console.log(result);
+    expect(res.status).toBe(200);
 
     expect(mockReservationService.update).toHaveBeenCalledTimes(1);
     expect(mockReservationService.update.mock.calls[0][0]).toBe(1);

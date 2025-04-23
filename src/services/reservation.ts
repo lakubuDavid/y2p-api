@@ -2,26 +2,39 @@
 import { eq, and, gte, lte, inArray, or, lt } from "drizzle-orm";
 import { LibSQLDatabase } from "drizzle-orm/libsql";
 import {
-  ReservationTable,
   CreateReservation,
   SelectReservation,
   ReservationStatus,
-} from "../db/schemas/reservation";
-import { PetTable, SelectPet } from "../db/schemas/pet";
+  ReservationRecord,
+  ReservationHistoryRow,
+} from "../models/reservation";
+import { PetTable } from "../db/schemas/pet";
 import { BaseService } from "./service";
 import { SelectUser, UserTable } from "../db/schemas/user";
-import { AsyncResult, ErrorCodes, Fail, MatchErrorCode, Ok, Result } from "../../lib/error";
+import {
+  AsyncResult,
+  ErrorCodes,
+  Fail,
+  MatchErrorCode,
+  Ok,
+  Result,
+} from "../../lib/error";
 
-import { normalizeDate, normalizedDate } from "../../lib/utils";
-import { LibsqlError } from "@libsql/client";
 import {
   dateFromReservation,
   toDate,
   dateFromReservationFrom,
   ReservationDate,
   toReservationDate,
+  TimePeriod,
+  TimeString,
+  isSameDay,
 } from "@/types";
 import { DateTime } from "luxon";
+import { ReservationTable } from "@/models/reservation";
+import { isDeepStrictEqual } from "util";
+import { deepEqual } from "assert";
+import { StaffTable } from "@/models/staff";
 
 interface TimeSlot {
   from: string;
@@ -47,25 +60,7 @@ export interface QueryReservationFilter {
 //   status? : `${ReservationStatus}`
 // }
 
-export interface ReservationRecord {
-  pet: Omit<SelectPet, "owner" | "createdAt">;
-  user: Omit<SelectUser, "passwordHash" | "salt" | "createdAt">;
-  reservation: Omit<
-    SelectReservation,
-    "timeFrom" | "timeTo" | "userId" | "petId"
-  > & {
-    time: TimeSlot;
-  };
-}
-
 const ReservationHistoryJoinColumns = {
-  owner: {
-    id: UserTable.id,
-    name: UserTable.name,
-    surname: UserTable.surname,
-    email: UserTable.email,
-    phoneNumber: UserTable.phoneNumber,
-  },
   date: ReservationTable.date,
   time: {
     from: ReservationTable.timeFrom,
@@ -103,6 +98,8 @@ export const ReservationJoinColumns = {
     createdAt: ReservationTable.createdAt,
     id: ReservationTable.id,
     reservationNumber: ReservationTable.reservationNumber,
+    service: ReservationTable.service,
+    assigneeId: ReservationTable.assigneeId,
   },
 };
 export class ReservationService extends BaseService {
@@ -162,12 +159,20 @@ export class ReservationService extends BaseService {
     >,
   ): Promise<Result<SelectReservation>> {
     try {
+      let status = value.status;
+      if (value.date) {
+        if (status !== "canceled" && status !== "done")
+          if (toDate(value.date).getTime() > Date.now()) {
+            status = "rescheduled";
+          } else {
+            status = "late";
+          }
+      }
       const [updatedReservation] = await this.db
         .update(ReservationTable)
-        .set(value)
+        .set({ ...value, status })
         .where(eq(ReservationTable.id, id))
         .returning();
-
       return Ok(updatedReservation);
     } catch (error) {
       return Fail(
@@ -187,20 +192,37 @@ export class ReservationService extends BaseService {
         .innerJoin(PetTable, eq(ReservationTable.petId, PetTable.id))
         .innerJoin(UserTable, eq(ReservationTable.userId, UserTable.id))
         .where(eq(ReservationTable.id, id));
-      if (!result)
-        return Fail("Rservation not found", ErrorCodes.NOT_FOUND);
+      if (!result) return Fail("Rservation not found", ErrorCodes.NOT_FOUND);
+      const assignee = result.reservation.assigneeId
+        ? (
+            await this.db
+              .select({
+                name: UserTable.name,
+                id: UserTable.id,
+                surname: UserTable.surname,
+                email: UserTable.email,
+                phoneNumber: UserTable.phoneNumber,
+                type: UserTable.type,
+                createdAt: UserTable.createdAt,
+                role: StaffTable.role,
+              })
+              .from(UserTable)
+              .where(eq(UserTable.id, result.reservation.assigneeId))
+          )[0]
+        : undefined;
 
       const reservation = {
         ...result,
         reservation: {
           ...result.reservation,
           time: {
-            from: result.reservation.timeFrom,
-            to: result.reservation.timeTo,
+            from: result.reservation.timeFrom as TimeString,
+            to: result.reservation.timeTo as TimeString,
           },
           timeFrom: undefined,
           timeTo: undefined,
         },
+        assignee,
       };
 
       return Ok(reservation);
@@ -230,17 +252,35 @@ export class ReservationService extends BaseService {
         return Fail("Reservation not found", ErrorCodes.NOT_FOUND);
       }
 
+      const assignee = result.reservation.assigneeId
+        ? (
+            await this.db
+              .select({
+                name: UserTable.name,
+                id: UserTable.id,
+                surname: UserTable.surname,
+                email: UserTable.email,
+                phoneNumber: UserTable.phoneNumber,
+                type: UserTable.type,
+                createdAt: UserTable.createdAt,
+                role: StaffTable.role,
+              })
+              .from(UserTable)
+              .where(eq(UserTable.id, result.reservation.assigneeId))
+          )[0]
+        : undefined;
       const reservation = {
         ...result,
         reservation: {
           ...result.reservation,
           time: {
-            from: result.reservation.timeFrom,
-            to: result.reservation.timeTo,
+            from: result.reservation.timeFrom as TimeString,
+            to: result.reservation.timeTo as TimeString,
           },
           timeFrom: undefined,
           timeTo: undefined,
         },
+        assignee,
       };
 
       if (!reservation) {
@@ -294,34 +334,62 @@ export class ReservationService extends BaseService {
             dynamicQuery = dynamicQuery.where(
               eq(ReservationTable.petId, filter.petId),
             );
-          if (filter.date)
+          if (filter.date) {
+            console.log(filter.date);
             dynamicQuery = dynamicQuery.where(
               eq(ReservationTable.date, filter.date),
             );
+          }
         }
         let _allReservations = await dynamicQuery.execute();
-        const allReservations = _allReservations.map((res) => {
+        const allReservations = await Promise.all(_allReservations.map(async (res) => {
+          const assignee = res.reservation.assigneeId
+            ? (
+                await this.db
+                  .select({
+                    name: UserTable.name,
+                    id: UserTable.id,
+                    surname: UserTable.surname,
+                    email: UserTable.email,
+                    phoneNumber: UserTable.phoneNumber,
+                    type: UserTable.type,
+                    createdAt: UserTable.createdAt,
+                    role: StaffTable.role,
+                  })
+                  .from(UserTable)
+                  .innerJoin(StaffTable,eq(StaffTable.userId,UserTable.id))
+                  .where(eq(UserTable.id, res.reservation.assigneeId))
+              )[0]
+            : undefined;
+
           return {
             ...res,
             reservation: {
               ...res.reservation,
               time: {
-                from: res.reservation.timeFrom,
-                to: res.reservation.timeTo,
+                from: res.reservation.timeFrom as TimeString,
+                to: res.reservation.timeTo as TimeString,
               },
               timeFrom: undefined,
               timeTo: undefined,
             },
+            assignee,
           };
-        });
+        }));
         // Detect stale reservations
         const now = new Date();
-        const staleReservations = allReservations.filter(
-          (reservation) =>
-            reservation.reservation.status === "oncoming" &&
+        const staleReservations = allReservations.filter((reservation) => {
+          console.log(
+            "res",
+            dateFromReservation(reservation.reservation).getTime(),
+          );
+          console.log("now", now.getTime());
+          return (
+            reservation.reservation.status == "oncoming" &&
             dateFromReservation(reservation.reservation).getTime() <
-              now.getTime(),
-        );
+              now.getTime()
+          );
+        });
 
         if (staleReservations.length > 0) {
           const staleIds = staleReservations.map((r) => r.reservation.id);
@@ -345,6 +413,42 @@ export class ReservationService extends BaseService {
           );
         }
 
+        const onCommingReservations = allReservations.filter((reservation) => {
+          console.log(
+            "res",
+            dateFromReservation(reservation.reservation).getTime(),
+          );
+          console.log("now", now.getTime());
+          return (
+            reservation.reservation.status == "oncoming" &&
+            dateFromReservation(reservation.reservation).getTime() <
+              now.getTime()
+          );
+        });
+
+        if (onCommingReservations.length > 0) {
+          const onCommingIds = onCommingReservations.map(
+            (r) => r.reservation.id,
+          );
+
+          await tx
+            .update(ReservationTable)
+            .set({ status: "oncoming" })
+            .where(inArray(ReservationTable.id, onCommingIds));
+
+          // Update local records efficiently using map()
+          return allReservations.map((reservation) =>
+            onCommingIds.includes(reservation.reservation.id)
+              ? {
+                  ...reservation,
+                  reservation: {
+                    ...reservation.reservation,
+                    status: "oncoming" as ReservationStatus,
+                  },
+                }
+              : reservation,
+          );
+        }
         return allReservations;
       });
 
@@ -417,7 +521,9 @@ export class ReservationService extends BaseService {
         return Fail(
           `Time slot ${data.timeFrom} - ${
             data.timeTo
-          } is already reserved for ${toDate(data.date).toLocaleDateString()}`,
+          } is already reserved for ${toDate(data.date).toLocaleDateString(
+            "fr-FR",
+          )}`,
           ErrorCodes.RECORD_ALREADY_EXISTS,
         );
       }
@@ -456,22 +562,23 @@ export class ReservationService extends BaseService {
       // Normalize the given date to midnight.
 
       // Retrieve reserved slots for that day.
-      let reservedSlots: TimeSlot[] = [];
+      let reservedSlots: { time: TimeSlot; date: ReservationDate }[] = [];
       if (excludeReservations) {
         const reservations = await this.db
           .select({
-            timeFrom: ReservationTable.timeFrom,
-            timeTo: ReservationTable.timeTo,
+            time: {
+              from: ReservationTable.timeFrom,
+              to: ReservationTable.timeTo,
+            },
+            date: ReservationTable.date,
           })
           .from(ReservationTable)
-          .where(eq(ReservationTable.date, toReservationDate(date)))
+          // .where(eq(ReservationTable.date, toReservationDate(date)))
           .all();
 
-        reservedSlots = reservations.map((reservation) => ({
-          from: reservation.timeFrom,
-          to: reservation.timeTo,
-        }));
+        reservedSlots = reservations;
       }
+      console.log(date);
 
       const freeSlots: TimeSlot[] = [];
 
@@ -487,6 +594,7 @@ export class ReservationService extends BaseService {
         const slotEnd = timeToMinutes(slot.to);
         const reservedStart = timeToMinutes(reserved.from);
         const reservedEnd = timeToMinutes(reserved.to);
+        console.log(slotStart, reservedStart);
         // Overlap occurs if the start of one slot is before the end of the other, and vice versa.
         return slotStart < reservedEnd && slotEnd > reservedStart;
       };
@@ -513,15 +621,22 @@ export class ReservationService extends BaseService {
           });
 
           const newSlot: TimeSlot = { from, to };
-          // Check for any overlap with reserved slots.
-          const hasOverlap = reservedSlots.some((reserved) =>
-            overlaps(newSlot, reserved),
-          );
-          if (hasOverlap) {
-            continue; // Skip this slot if it overlaps.
-          }
+          let overlaps = false;
 
-          freeSlots.push(newSlot);
+          for (const existingSlot of reservedSlots) {
+            const sameDay = isSameDay(
+              toReservationDate(date),
+              existingSlot.date,
+            );
+            if (sameDay) {
+              const _eq = isDeepStrictEqual(existingSlot.time, newSlot);
+              overlaps = _eq;
+              if (_eq) {
+                break;
+              }
+            }
+          }
+          if (!overlaps) freeSlots.push(newSlot);
         }
       }
 
@@ -537,7 +652,11 @@ export class ReservationService extends BaseService {
     }
   }
 
-  public async getHistoy({ petId }: { petId?: number }) {
+  public async getHistory({
+    petId,
+  }: {
+    petId?: number;
+  }): AsyncResult<ReservationHistoryRow[]> {
     if (!petId) return Fail("Missing pet id", ErrorCodes.VALIDATION_ERROR);
     const reservations = await this.db
       .select(ReservationHistoryJoinColumns)

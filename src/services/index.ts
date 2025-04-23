@@ -29,9 +29,9 @@ type ServiceName = keyof Omit<ContextVariableMap, "jwtPayload">;
 const registerService = <TService extends BaseService>(
   c: Context,
   name: ServiceName,
-  type: { new (db: LibSQLDatabase, jwtSecret: string): TService },
+  TServiceType: { new (db: LibSQLDatabase, jwtSecret: string): TService },
 ) => {
-  c.set(name as string, new type(c.var.db, env<Bindings>(c).JWT_SECRET));
+  c.set(name as string, new TServiceType(c.var.db, env<Bindings>(c).JWT_SECRET));
 };
 
 export const registerServices = () =>
@@ -54,7 +54,7 @@ export const registerServices = () =>
         c.var.db,
         env<Bindings>(c).JWT_SECRET,
         env<Bindings>(c).RESEND_TOKEN,
-        env<Bindings>(c).URL,
+        env<Bindings>(c).CLIENT_URL,
       ),
     );
 
@@ -62,7 +62,7 @@ export const registerServices = () =>
       "notificationService",
       new NotificationService(
         env<Bindings>(c).RESEND_TOKEN,
-        env<Bindings>(c).URL,
+        env<Bindings>(c).CLIENT_URL,
         env<Bindings>(c).EMAIL_SENDER ?? "no-reply@lakubudavid.me"
       ),
     );

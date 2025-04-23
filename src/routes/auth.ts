@@ -215,16 +215,9 @@ auth.post("/refresh", async (c) => {
   }
 });
 
-auth.get("/me", authenticatedOnly, async (c) => {
-  const { authService } = c.var;
-  const payload = c.get("jwtPayload") as TokenPayload;
-  return c.json(Ok(payload));
-  // const tokenPayload = authService.verifyToken()
-});
 
-auth.post("/logout", authenticatedOnly, async (c) => {
+auth.get("/logout", authenticatedOnly, async (c) => {
   const { authService } = c.var;
-  const payload = c.get("jwtPayload");
   const refreshToken = c.req.header("x-refresh-token");
   deleteCookie(c, "__token");
   deleteCookie(c, "__refresh_token");
@@ -236,13 +229,15 @@ auth.post("/logout", authenticatedOnly, async (c) => {
   return c.json({ status: "ok", message: "Logged out successfully" });
 });
 
-auth.post("/logout-all", authenticatedOnly, async (c) => {
-  const { authService } = c.var;
-  const payload = c.get("jwtPayload");
+// KILL ALL SWITCH
+// 
+// auth.post("/logout-all", authenticatedOnly, async (c) => {
+//   const { authService } = c.var;
+//   const payload = c.get("jwtPayload");
 
-  await authService.revokeAllUserTokens(payload.userId);
+//   await authService.revokeAllUserTokens(payload.userId);
 
-  return c.json({ status: "ok", message: "Logged out from all devices" });
-});
+//   return c.json({ status: "ok", message: "Logged out from all devices" });
+// });
 
 export default auth;

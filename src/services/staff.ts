@@ -10,6 +10,7 @@ import { eq, and } from "drizzle-orm";
 import { BaseService } from "./service";
 import { AsyncResult, ErrorCodes, Fail, Ok, Result } from "@/libs/error";
 import staff from "@/routes/staff";
+import { z } from "zod";
 
 export type StaffUser = SelectStaff & {
   user: {
@@ -28,11 +29,63 @@ export const StaffTablePublicColumns = {
     email: UserTable.email,
   },
 };
+
+export const QueryFilterStaffAll = z
+  .object({
+    role: z.enum(["admin", "veterinary", "receptionist"]).optional(),
+    email: z.string().email().optional(),
+  })
+  .optional();
 export class StaffService extends BaseService {
   constructor(db: LibSQLDatabase, jwtSecret: string) {
     super(db, jwtSecret);
   }
+  public async all(
+    filters?: z.infer<typeof QueryFilterStaffAll>,
+  ): AsyncResult<StaffUser[]> {
+    try {
+      let query = this.db
+        .select(StaffTablePublicColumns)
+        .from(StaffTable)
+        .leftJoin(UserTable, eq(StaffTable.userId, UserTable.id))
+        .$dynamic();
 
+      // Apply filters if provided
+      if (filters) {
+        const conditions = [];
+
+        // Filter by role
+        if (filters.role) {
+          conditions.push(eq(StaffTable.role, filters.role));
+        }
+
+        // Filter by email
+        if (filters.email) {
+          conditions.push(eq(UserTable.email, filters.email));
+        }
+
+        // Apply all conditions if any exist
+        if (conditions.length > 0) {
+          if (conditions.length === 1) {
+            query = query.where(conditions[0]);
+          } else {
+            query = query.where(and(...conditions));
+          }
+        }
+      }
+
+      const results = await query;
+
+      return Ok(results as StaffUser[]);
+    } catch (error) {
+      return Fail(
+        `Failed to fetch staff: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+        ErrorCodes.UNKNOWN,
+      );
+    }
+  }
   public async create(staffInfo: CreateStaff): AsyncResult<SelectStaff> {
     // Check if user is already a staff member
     const existing = await this.db
@@ -73,13 +126,22 @@ export class StaffService extends BaseService {
       .from(StaffTable)
       .leftJoin(UserTable, eq(StaffTable.userId, UserTable.id));
     if (role) {
-      return await query.where(eq(StaffTable.role, role));
+      return Ok(await query.where(eq(StaffTable.role, role)));
     }
 
-    return await query;
+    const result = await query;
+    return Ok(result);
   }
 
-  public async update(staffId: number, updates: Partial<CreateStaff>) {
+  public async update(
+    staffId: number,
+    updates: Partial<CreateStaff>,
+  ): AsyncResult<{
+    id: number;
+    role: "admin" | "veterinary" | "receptionist";
+    createdAt: Date;
+    userId: number;
+  }> {
     const [result] = await this.db
       .update(StaffTable)
       .set(updates)
@@ -87,10 +149,10 @@ export class StaffService extends BaseService {
       .returning();
 
     if (!result) {
-      throw new Error("Staff member not found");
+      return Fail("Staff member not found", ErrorCodes.NOT_FOUND);
     }
 
-    return result;
+    return Ok(result);
   }
 
   public async remove(staffId: number) {
@@ -100,10 +162,10 @@ export class StaffService extends BaseService {
       .returning();
 
     if (!result) {
-      throw new Error("Staff member not found");
+      return Fail("Staff member not found", ErrorCodes.NOT_FOUND);
     }
 
-    return result;
+    return Ok(result);
   }
 
   public async hasPermission(userId: number, requiredRoles: Roles[]) {

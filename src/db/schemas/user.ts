@@ -1,4 +1,7 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { createUpdateSchema } from "drizzle-zod";
+import { z } from "zod";
+import { Roles } from "./staff";
 
 const table = sqliteTable;
 
@@ -19,4 +22,18 @@ export const UserTable = table("user", {
 
 export type CreateUser = typeof UserTable.$inferInsert;
 export type SelectUser = typeof UserTable.$inferSelect;
-export type SelectUserData = Omit<SelectUser, "salt" | "passwordHash"|"verified">;
+export type SelectUserData = Omit<
+  SelectUser,
+  "salt" | "passwordHash" | "verified"
+> & {role?:Roles | null};
+
+export const UpdateUserSchema = createUpdateSchema(UserTable)
+  .pick({
+    name: true,
+    surname: true,
+    email: true,
+    phoneNumber: true,
+    type: true,
+  })
+  .extend({ role: z.enum(["admin","veterinary","receptionist"]).optional() });
+export type UpdateUserParams = z.infer<typeof UpdateUserSchema>;

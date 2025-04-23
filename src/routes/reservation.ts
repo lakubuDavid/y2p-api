@@ -1,30 +1,22 @@
 //src/routes/reservation.ts
 import { Hono } from "hono";
-import { jwt } from "hono/jwt";
-import {
-  AppContext,
-  Bindings,
-  dateFromReservationFrom,
-  CreateReservationParams,
-  Variables,
-  ReservationInfoSchema,
-  ReservationDateSchema,
-  toDate,
-} from "../types";
-import { z, ZodError } from "zod";
+import { Bindings, Variables, toDate } from "../types";
+import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
-import { SelectUser, SelectUserData } from "../db/schemas/user";
-import { ErrorCodes, Fail, ManagedError, MatchHTTPCode } from "../../lib/error";
+import { SelectUserData } from "../db/schemas/user";
+import { ErrorCodes, ManagedError, MatchHTTPCode } from "../../lib/error";
 import { SelectPet } from "../db/schemas/pet";
-import { ReservationStatus } from "../db/schemas/reservation";
-import { ReservationService } from "../services/reservation";
 import { PetInfo } from "@/services/pet";
+import {
+  CreateReservationSchema,
+  ReservationDateSchema,
+} from "../models/reservation";
 
 const reservation = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 reservation.post(
   "/",
-  zValidator("json", CreateReservationParams),
+  zValidator("json", CreateReservationSchema),
   async (c) => {
     const { petInfo, userInfo, reservationInfo } = c.req.valid("json");
 
@@ -35,6 +27,7 @@ reservation.post(
       let petId: number;
 
       if ("id" in userInfo) {
+        console.log("id", userInfo.id);
         userId = userInfo.id;
       } else {
         let user: SelectUserData | undefined;
@@ -42,7 +35,7 @@ reservation.post(
           email: userInfo.email,
           phoneNumber: userInfo.phoneNumber,
         });
-        if (error) {
+        if (error && error.code != ErrorCodes.USER_NOT_FOUND) {
           return c.json({ error }, MatchHTTPCode(error.code));
         }
         user = data;
@@ -92,6 +85,7 @@ reservation.post(
           date: reservationInfo.date,
           timeFrom: reservationInfo.time.from,
           timeTo: reservationInfo.time.to,
+          service: reservationInfo.service,
         });
       if (createReservationError) {
         return c.json(
@@ -230,6 +224,7 @@ reservation.patch(
           to: z.string(),
         }),
         status: z.enum(["rescheduled", "canceled", "oncoming", "done", "late"]),
+        assigneeId: z.number().int(),
       })
       .partial(),
   ),
@@ -253,7 +248,7 @@ reservation.patch(
       // Check if already done
       const { data: reservation } =
         await reservationService.getById(reservationId);
-      if (reservation?.reservation.status== "done") {
+      if (reservation && reservation?.reservation.status == "done" && !status) {
         return c.json(
           {
             error: "Already completed reservation can't be modifed",
@@ -267,11 +262,14 @@ reservation.patch(
         status: body.status,
         timeFrom: body.time?.from,
         timeTo: body.time?.to,
+        assigneeId: body.assigneeId,
       });
       if (error) {
+        return c.json({ error }, MatchHTTPCode(error.code));
       }
       return c.json({ data });
     } catch (error) {
+      console.log(error);
       const err = new ManagedError(
         "Invalid parameter",
         ErrorCodes.VALIDATION_ERROR,

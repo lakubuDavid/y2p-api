@@ -8,6 +8,7 @@ import { TokenTable } from "../db/schemas/token";
 import { JWTPayload } from "hono/utils/jwt/types";
 import { BaseService } from "./service";
 import {
+  AsyncResult,
   ErrorCodes,
   Fail,
   Failed,
@@ -172,7 +173,14 @@ export class AuthService extends BaseService {
       .where(eq(TokenTable.userId, userId));
   }
 
-  public async login(email: string, password: string) {
+  public async login(
+    email: string,
+    password: string,
+  ): AsyncResult<{
+    accessToken: string;
+    refreshToken: string;
+    user: { id: number; email: string; name: string };
+  }> {
     const [user] = await this.db
       .select()
       .from(UserTable)
@@ -185,7 +193,10 @@ export class AuthService extends BaseService {
     const [hashedAttempt] = await this.hashPassword(password, user.salt);
 
     if (hashedAttempt !== user.passwordHash) {
-      return Fail("Username or password invalid", ErrorCodes.AUTHENTICATION_FAILED);
+      return Fail(
+        "Username or password invalid",
+        ErrorCodes.AUTHENTICATION_FAILED,
+      );
     }
 
     const tokens = await this.generateTokenPair(user.id, user.email);

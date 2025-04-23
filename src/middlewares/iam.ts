@@ -3,7 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import { Roles } from "@/models/staff";
 
 // Define permissions for each department
-export const DepartmentPermissions = {
+export const RolesPermissions = {
   admin: [
     "manage:staff",
     "view:staff",
@@ -27,7 +27,7 @@ export const DepartmentPermissions = {
   ],
 } as const;
 
-export type Permission = (typeof DepartmentPermissions)[Roles][number];
+export type Permission = (typeof RolesPermissions)[Roles][number];
 
 // Create middleware factory for permission-based authorization
 export const requirePermission = (requiredPermission: Permission) => {
@@ -42,8 +42,8 @@ export const requirePermission = (requiredPermission: Permission) => {
       });
     }
     const departmentPermissions =
-      DepartmentPermissions[
-        staff.role as keyof typeof DepartmentPermissions
+      RolesPermissions[
+        staff.role as keyof typeof RolesPermissions
       ]; // Type-safe access
 
     // const departmentPermissions = DepartmentPermissions[staff.department];
@@ -64,7 +64,7 @@ export const requirePermission = (requiredPermission: Permission) => {
 };
 
 // Create middleware factory for department-based authorization
-export const requireDepartment = (departments: Roles[]) => {
+export const requireRole = (departments: Roles[]) => {
   return async (c: Context, next: Next) => {
     const { staffService } = c.var;
     const payload = c.get("jwtPayload");

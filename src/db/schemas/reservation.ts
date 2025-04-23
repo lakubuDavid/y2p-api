@@ -5,6 +5,7 @@ import { UserTable } from "./user";
 
 import { ReservationDate } from "@/types";
 import { ReservationService } from "@/services/reservation";
+import { StaffTable } from "./staff";
 
 const table = sqliteTable;
 
@@ -32,14 +33,13 @@ export const ReservationTable = table("reservation", {
   timeTo: text().notNull(),
   status: text({
     enum: ["rescheduled", "canceled", "oncoming", "done", "late"],
+  })
+    .notNull()
+    .default("oncoming"),
+  service: text({
+    enum: ["grooming", "vaccination", "consultation"],
   }).notNull(),
+  assigneeId: integer().references(() => StaffTable.id, {
+    onDelete: "set null",
+  }),
 });
-
-export type ReservationStatus =
-  | "oncoming"
-  | "done"
-  | "late"
-  | "rescheduled"
-  | "canceled";
-export type CreateReservation = typeof ReservationTable.$inferInsert;
-export type SelectReservation = typeof ReservationTable.$inferSelect;

@@ -1,9 +1,13 @@
-import { SelectReservation } from "@/models/reservation";
 import * as libsql from "@libsql/client";
 import { LibSQLDatabase } from "drizzle-orm/libsql";
 import { Context } from "hono";
 import type { JwtVariables } from "hono/jwt";
 import { z } from "zod";
+import {
+  ReservationDateSchema,
+  ReservationInfoSchema,
+  SelectReservation,
+} from "./models/reservation";
 
 const envSchema = z.object({});
 
@@ -40,7 +44,7 @@ export const PetInfoSchema = z.object({
 });
 export type PetInfoType = z.infer<typeof PetInfoSchema>;
 
-const ValidDaySchema = z.union([
+export const ValidDaySchema = z.union([
   z.literal(1),
   z.literal(2),
   z.literal(3),
@@ -74,7 +78,7 @@ const ValidDaySchema = z.union([
   z.literal(31),
 ]);
 
-const ValidMonthSchema = z.union([
+export const ValidMonthSchema = z.union([
   z.literal(1),
   z.literal(2),
   z.literal(3),
@@ -89,38 +93,14 @@ const ValidMonthSchema = z.union([
   z.literal(12),
 ]);
 
-// Create the reservation date schema
-export const ReservationDateSchema = z
-  .object({
-    day: ValidDaySchema,
-    month: ValidMonthSchema,
-    year: z.number().int().positive(),
-  })
-  .refine(
-    (data) => {
-      // Validate that the day is valid for the given month and year
-      const date = new Date(data.year, data.month - 1, data.day);
-      return (
-        date.getFullYear() === data.year &&
-        date.getMonth() === data.month - 1 &&
-        date.getDate() === data.day
-      );
-    },
-    {
-      message:
-        "Invalid date - the day does not exist for the specified month and year",
-      path: ["day"],
-    },
-  );
-
-// Type inference from the schema
-export type ValidatedReservationDate = z.infer<typeof ReservationDateSchema>;
 export const UserInfoSchema = z
   .object({
     name: z.string(),
     surname: z.string(),
     email: z.string().email().optional().or(z.string()),
     phoneNumber: z.string().optional(),
+    role: z.enum(["admin", "veterinary", "receptionist"]).optional(),
+    type: z.enum(["staff", "client", "anonymous"]).optional(),
   })
   .refine(
     (data) =>
@@ -139,19 +119,13 @@ export const TimeSchema = z.object({
 });
 export type TimeType = z.infer<typeof TimeSchema>;
 
-export const ReservationInfoSchema = z.object({
-  date: ReservationDateSchema,
-  time: TimeSchema,
-});
-export type CreateReservationType = z.infer<typeof ReservationInfoSchema>;
+export type ReservationInfo = z.infer<typeof ReservationInfoSchema>;
 /**
  * Converts reservation.date + reservation.time.to into a JS Date.
  * @param reservation ReservationType
  * @returns Date object representing the combined date and time
  */
-export function dateFromReservationTo(
-  reservation: CreateReservationType,
-): Date {
+export function dateFromReservationTo(reservation: ReservationInfo): Date {
   const { date, time } = reservation;
   const [hours, minutes] = time.to.split(":").map(Number);
 
@@ -160,9 +134,7 @@ export function dateFromReservationTo(
 
   return result;
 }
-export function dateFromReservationFrom(
-  reservation: CreateReservationType,
-): Date {
+export function dateFromReservationFrom(reservation: ReservationInfo): Date {
   const { date, time } = reservation;
   const [hours, minutes] = time.from.split(":").map(Number);
   // console.log(date,hours,minutes)
@@ -176,37 +148,28 @@ export function dateFromReservation(
   reservation: Pick<SelectReservation, "date">,
 ): Date {
   const { date } = reservation;
-  // console.log(date,hours,minutes)
-  const result = new Date(date.day, date.month - 1, date.year);
-  result.setUTCHours(0, 0, 0);
-  // console.log(date,result)
+  console.log(date.day, date.month, date.year);
+  const result = new Date(date.year, date.month - 1, date.day);
+  // result.setUTCHours(0, 0, 0);
+  console.log(date, result);
 
   return result;
 }
-export const toReservationDate = (date: Date): ReservationDate => {
-  let _date = {
-    day: date.getUTCDate() as ValidDay,
-    month: date.getUTCMonth() as ValidMonth,
-    year: date.getUTCFullYear(),
-  };
-  return _date;
-};
+export function toReservationDate(date: Date): ReservationDate {
+    let _date = {
+        day: date.getUTCDate() as ValidDay,
+        month: date.getUTCMonth() + 1 as ValidMonth,
+        year: date.getUTCFullYear(),
+    };
+    return _date;
+}
 export function toDate(date: ReservationDate): Date {
-  // console.log(date,hours,minutes)
-  const result = new Date(date.day, date.month - 1, date.year);
-  result.setUTCHours(0, 0, 0);
-  // console.log(date,result)
+  const _date = new Date(date.year, date.month - 1, date.day);
 
-  return result;
+  return _date;
 }
 
 export const IdSchema = z.object({ id: z.number() });
-
-export const CreateReservationParams = z.object({
-  userInfo: z.union([IdSchema, UserInfoSchema]),
-  reservationInfo: ReservationInfoSchema,
-  petInfo: z.union([IdSchema, PetInfoSchema]),
-});
 
 export type TimePeriod = "AM" | "PM" | "";
 export type TimeString = `${number}:${number} ${TimePeriod}`;
@@ -283,3 +246,11 @@ export type ReservationDate = {
   month: ValidMonth;
   year: number;
 }; // Define base schemas
+
+export const isSameDay = (date_a: ReservationDate, date_b: ReservationDate) => {
+  return (
+    date_a.year === date_b.year &&
+    date_a.month === date_b.month &&
+    date_a.day === date_b.day
+  );
+};

@@ -14,7 +14,7 @@ export const PetTable = table("pet", {
     .notNull(),
   name: text().notNull(),
   ownerId: integer()
-    .references(() => UserTable.id)
+    .references(() => UserTable.id, { onDelete: "cascade" })
     .notNull(),
   specie: text().notNull().default("unknown"),
   createdAt: integer({ mode: "timestamp" })
