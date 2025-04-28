@@ -8,6 +8,8 @@ import { ErrorCodes, Fail, Ok, Result } from "../../lib/error";
 import * as Sentry from "@sentry/cloudflare";
 import { ReservationRecord } from "../models/reservation";
 
+const EMAIL_WHITELIST = ["lakubudavid@gmail.com","hello@lakubudavid.me","contact@lakubudavid.me"]
+
 export class NotificationService {
   private resend: Resend;
   private appUrl: string;
@@ -66,6 +68,10 @@ export class NotificationService {
       // Skip if no email available
       if (!reservation.user.email) {
         console.warn("No email to send to");
+        return Ok(false);
+      }
+      if (!EMAIL_WHITELIST.includes(reservation.user.email)) {
+        console.warn("Email not white listed");
         return Ok(false);
       }
 
