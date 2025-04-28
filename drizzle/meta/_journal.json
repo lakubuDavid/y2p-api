@@ -127,6 +127,34 @@
       "when": 1745427586273,
       "tag": "0017_update_user_email_unique_constraint",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1745806378586,
+      "tag": "0018_update_assigneeId_constraint",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1745807022442,
+      "tag": "0019_update_assigneeId_constraint2",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1745807103542,
+      "tag": "0020_update_assigneeId_constraint3",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1745807579061,
+      "tag": "0021_update_assigneeId_constraint4",
+      "breakpoints": true
     }
   ]
 }

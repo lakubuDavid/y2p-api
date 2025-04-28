@@ -205,9 +205,11 @@ export class ReservationService extends BaseService {
                 type: UserTable.type,
                 createdAt: UserTable.createdAt,
                 role: StaffTable.role,
+                staffId: StaffTable.id,
               })
               .from(UserTable)
-              .where(eq(UserTable.id, result.reservation.assigneeId))
+              .innerJoin(StaffTable, eq(UserTable.id, StaffTable.userId))
+              .where(eq(StaffTable.id, result.reservation.assigneeId))
           )[0]
         : undefined;
 
@@ -264,9 +266,11 @@ export class ReservationService extends BaseService {
                 type: UserTable.type,
                 createdAt: UserTable.createdAt,
                 role: StaffTable.role,
+                staffId: StaffTable.id,
               })
               .from(UserTable)
-              .where(eq(UserTable.id, result.reservation.assigneeId))
+              .innerJoin(StaffTable, eq(UserTable.id, StaffTable.userId))
+              .where(eq(StaffTable.id, result.reservation.assigneeId))
           )[0]
         : undefined;
       const reservation = {
@@ -342,40 +346,43 @@ export class ReservationService extends BaseService {
           }
         }
         let _allReservations = await dynamicQuery.execute();
-        const allReservations = await Promise.all(_allReservations.map(async (res) => {
-          const assignee = res.reservation.assigneeId
-            ? (
-                await this.db
-                  .select({
-                    name: UserTable.name,
-                    id: UserTable.id,
-                    surname: UserTable.surname,
-                    email: UserTable.email,
-                    phoneNumber: UserTable.phoneNumber,
-                    type: UserTable.type,
-                    createdAt: UserTable.createdAt,
-                    role: StaffTable.role,
-                  })
-                  .from(UserTable)
-                  .innerJoin(StaffTable,eq(StaffTable.userId,UserTable.id))
-                  .where(eq(UserTable.id, res.reservation.assigneeId))
-              )[0]
-            : undefined;
+        const allReservations = await Promise.all(
+          _allReservations.map(async (res) => {
+            const assignee = res.reservation.assigneeId
+              ? (
+                  await this.db
+                    .select({
+                      name: UserTable.name,
+                      id: UserTable.id,
+                      surname: UserTable.surname,
+                      email: UserTable.email,
+                      phoneNumber: UserTable.phoneNumber,
+                      type: UserTable.type,
+                      createdAt: UserTable.createdAt,
+                      role: StaffTable.role,
+                      staffId: StaffTable.id,
+                    })
+                    .from(UserTable)
+                    .innerJoin(StaffTable, eq(UserTable.id, StaffTable.userId))
+                    .where(eq(StaffTable.id, res.reservation.assigneeId))
+                )[0]
+              : undefined;
 
-          return {
-            ...res,
-            reservation: {
-              ...res.reservation,
-              time: {
-                from: res.reservation.timeFrom as TimeString,
-                to: res.reservation.timeTo as TimeString,
+            return {
+              ...res,
+              reservation: {
+                ...res.reservation,
+                time: {
+                  from: res.reservation.timeFrom as TimeString,
+                  to: res.reservation.timeTo as TimeString,
+                },
+                timeFrom: undefined,
+                timeTo: undefined,
               },
-              timeFrom: undefined,
-              timeTo: undefined,
-            },
-            assignee,
-          };
-        }));
+              assignee,
+            };
+          }),
+        );
         // Detect stale reservations
         const now = new Date();
         const staleReservations = allReservations.filter((reservation) => {

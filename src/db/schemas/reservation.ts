@@ -16,9 +16,6 @@ export const ReservationTable = table("reservation", {
   reservationNumber: text()
     .notNull()
     .unique(),
-    // .$defaultFn(() => {
-    //   return ReservationService.generateRerservationNumber();
-    // }),
   petId: integer()
     .references(() => PetTable.id)
     .notNull(),
@@ -26,6 +23,7 @@ export const ReservationTable = table("reservation", {
     .references(() => UserTable.id)
     .notNull(),
 
+  assigneeId: integer().references(()=>StaffTable.id),
   createdAt: integer({ mode: "timestamp" }).$defaultFn(() => new Date()),
   // date: integer({ mode: "timestamp" }).notNull(),
   date: text({ mode: "json" }).$type<ReservationDate>().notNull(),
@@ -39,7 +37,4 @@ export const ReservationTable = table("reservation", {
   service: text({
     enum: ["grooming", "vaccination", "consultation"],
   }).notNull(),
-  assigneeId: integer().references(() => StaffTable.id, {
-    onDelete: "set null",
-  }),
 });

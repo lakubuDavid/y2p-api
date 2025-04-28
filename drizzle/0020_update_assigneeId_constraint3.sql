@@ -1,0 +1,1 @@
+ALTER TABLE `reservation` ALTER COLUMN "assigneeId" TO "assigneeId" integer REFERENCES staff(userId) ON DELETE no action ON UPDATE no action;
