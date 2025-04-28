@@ -163,7 +163,7 @@ export class ReservationService extends BaseService {
       if (value.date) {
         if (status !== "canceled" && status !== "done")
           if (toDate(value.date).getTime() > Date.now()) {
-            status = "rescheduled";
+            // status = "rescheduled";
           } else {
             status = "late";
           }
