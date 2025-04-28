@@ -5,7 +5,7 @@ import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { Failed, Ok } from "../../lib/error";
 import { authenticatedOnly } from "../middlewares/authentication";
-import { UpdatePetSchema } from "@/models/pet";
+import { InsertPetSchema, UpdatePetSchema } from "@/models/pet";
 
 const pets = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -27,15 +27,17 @@ const updatePetSchema = z.object({
 });
 
 // Create pet
-pets.post("/", zValidator("json", petSchema), async (c) => {
+pets.post("/", zValidator("json", InsertPetSchema), async (c) => {
   const { petService } = c.var;
   const payload = c.get("jwtPayload");
-  const { name } = c.req.valid("json");
+  const { name,specie,metadata,ownerId } = c.req.valid("json");
 
   try {
     const pet = await petService.create({
       name,
-      ownerId: payload.userId,
+      ownerId: ownerId,
+      metadata,
+      specie
     });
 
     return c.json(

@@ -1,7 +1,7 @@
 // src/db/schemas/pet.ts
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { UserTable } from "./user";
-import { createUpdateSchema } from "drizzle-zod";
+import { createInsertSchema, createUpdateSchema } from "drizzle-zod";
 import { z } from "zod";
 
 const table = sqliteTable;
@@ -34,4 +34,8 @@ export const UpdatePetSchema = createUpdateSchema(PetTable).omit({
   specie: true,
   createdAt: true,
 });
+export const InsertPetSchema = createInsertSchema(PetTable).omit({
+  id: true,
+  createdAt: true,
+}).required()
 export type UpdatePetParams = z.infer<typeof UpdatePetSchema>;

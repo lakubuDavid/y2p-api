@@ -1,6 +1,6 @@
 // src/services/auth.ts
 import { LibSQLDatabase } from "drizzle-orm/libsql";
-import { eq, and } from "drizzle-orm";
+import { eq, and, not } from "drizzle-orm";
 import crypto from "crypto";
 import { sign, verify } from "hono/jwt";
 import { UserTable } from "../db/schemas/user";
@@ -184,7 +184,9 @@ export class AuthService extends BaseService {
     const [user] = await this.db
       .select()
       .from(UserTable)
-      .where(eq(UserTable.email, email));
+      .where(
+        and(eq(UserTable.email, email), not(eq(UserTable.type, "anonymous"))),
+      );
 
     if (!user) {
       return Fail("Username or password invalid", ErrorCodes.INVALID_ARGUMENT);

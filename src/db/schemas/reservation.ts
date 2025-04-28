@@ -15,10 +15,10 @@ export const ReservationTable = table("reservation", {
   }),
   reservationNumber: text()
     .notNull()
-    .unique()
-    .$defaultFn(() => {
-      return ReservationService.generateRerservationNumber();
-    }),
+    .unique(),
+    // .$defaultFn(() => {
+    //   return ReservationService.generateRerservationNumber();
+    // }),
   petId: integer()
     .references(() => PetTable.id)
     .notNull(),

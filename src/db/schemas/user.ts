@@ -11,7 +11,7 @@ export const UserTable = table("user", {
   }),
   name: text().notNull(),
   surname: text().notNull().default(""),
-  email: text().notNull().default(""),
+  email: text().notNull().default("").unique(),
   phoneNumber: text().notNull().default(""),
   passwordHash: text().notNull(),
   salt: text().notNull(),
