@@ -27,6 +27,7 @@ const UserSelectColumns = {
   type: UserTable.type,
   createdAt: UserTable.createdAt,
   role: StaffTable.role,
+  staffId:StaffTable.id
 };
 
 export class UserService extends BaseService {
