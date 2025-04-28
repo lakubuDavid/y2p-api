@@ -180,8 +180,8 @@ export type TimeSlot = {
 };
 export const AdminCreateUserSchema = z
   .object({
-    name: z.string().min(1, "Name is required"),
-    surname: z.string().min(1, "Surname is required"),
+    name: z.string().min(3, "Name is required"),
+    surname: z.string().min(3, "Surname is required"),
     email: z.string().email("Invalid email address"),
     phoneNumber: z
       .string()

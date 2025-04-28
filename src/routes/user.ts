@@ -32,6 +32,7 @@ user.get("/", async (c) => {
 user.get("/me", authenticatedOnly, async (c) => {
   const { userService } = c.var;
   const payload = c.get("jwtPayload") as TokenPayload;
+  console.log(payload)
   const { data: user, error } = await userService.getById(payload.userId);
   if (error) {
     return c.json(

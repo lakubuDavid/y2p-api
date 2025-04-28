@@ -171,7 +171,7 @@ export class UserService extends BaseService {
       const [user] = await this.db
         .select(UserSelectColumns)
         .from(UserTable)
-        .innerJoin(StaffTable, eq(StaffTable.userId, UserTable.id))
+        .leftJoin(StaffTable, eq(StaffTable.userId, UserTable.id))
         .where(eq(UserTable.id, id));
       if (!user) {
         return Fail("User not found", ErrorCodes.NOT_FOUND);
@@ -193,7 +193,7 @@ export class UserService extends BaseService {
       const [user] = await this.db
         .select(UserSelectColumns)
         .from(UserTable)
-        .innerJoin(StaffTable, eq(StaffTable.userId, UserTable.id))
+        .leftJoin(StaffTable, eq(StaffTable.userId, UserTable.id))
         .where(eq(UserTable.email, email));
       if (!user) return Fail("User not found", ErrorCodes.USER_NOT_FOUND);
       return Ok(user);
@@ -215,7 +215,7 @@ export class UserService extends BaseService {
       const [user] = await this.db
         .select(UserSelectColumns)
         .from(UserTable)
-        .innerJoin(StaffTable, eq(StaffTable.userId, UserTable.id))
+        .leftJoin(StaffTable, eq(StaffTable.userId, UserTable.id))
         .where(eq(UserTable.phoneNumber, phoneNumber));
 
       if (!user) {
