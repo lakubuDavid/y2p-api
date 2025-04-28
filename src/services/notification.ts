@@ -29,6 +29,10 @@ export class NotificationService {
     user: Pick<SelectUser, "email" | "name">,
   ): Promise<Result<boolean>> {
     try {
+      if (!EMAIL_WHITELIST.includes(user.email)) {
+        console.warn("Email not white listed");
+        return Ok(false);
+      }
       const magicLinkUrl = `${this.appUrl}/auth/verify?token=${magicLink.token}`;
 
       const response = await this.resend.emails.send({
